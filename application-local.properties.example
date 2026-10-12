@@ -1,0 +1,17 @@
+# 本地密钥文件 —— 已被 .gitignore 忽略，不会提交到仓库
+#
+# 用法：把这个文件复制成 application-local.properties（去掉 .example），
+#       把下面的 Key 换成你自己的，然后正常启动应用即可。
+#
+# 为什么单独一个文件：application.properties 要提交到 GitHub，
+# 把真实 Key 写在里面等于公开泄露（密钥扫号机器人几分钟就能抓走）。
+#
+# 优先级：环境变量 AI_API_KEY / AI_EMBEDDING_API_KEY > 本文件 > application.properties 里的默认值
+
+ai.api-key=sk-替换成你的 DeepSeek Key
+
+# 智谱开放平台的 embedding-3
+ai.embedding-api-key=替换成你的智谱 Key
+
+# 可选：如果用了外部精排服务且它需要鉴权
+# kb.rerank.api-key=

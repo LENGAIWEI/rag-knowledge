@@ -1,0 +1,50 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### 密钥：绝不提交 ###
+application-local.properties
+config/application-local.properties
+
+### 知识库落盘文件 ###
+# 这是运行时状态，每次上传都会整体重写（3MB 的向量数据），
+# 每次入库都会产生一个巨大的 diff，而且它可以由 data/source/ 里的
+# Markdown 源文档重新入库得到 —— 所以不纳入版本控制。
+# 如果你想让 clone 下来就能直接演示，把源文档放进 data/source/ 即可（那个目录会被提交）。
+data/knowledge-base.json
+data/*.tmp
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### 操作系统 ###
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,13 @@
+# bge-reranker 本地推理服务依赖
+#
+# 注意：PyTorch 目前（2026-10）对 Python 3.13+ 的支持仍不完整，
+# 建议使用 Python 3.10 ~ 3.12。若本机只有 3.14，请先装一个 3.12：
+#   winget install Python.Python.3.12
+#   py -3.12 -m venv .venv
+
+torch>=2.2
+transformers>=4.38
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+sentencepiece>=0.2.0

@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG 知识库问答 · v2</title>
+<style>
+    :root {
+        --bg: #f5f6f9;
+        --panel: #ffffff;
+        --border: #e5e7eb;
+        --border-strong: #d6dae1;
+        --text: #14161c;
+        --muted: #6b7280;
+        --faint: #9aa1ad;
+        --accent: #4f46e5;
+        --accent-2: #7c3aed;
+        --accent-soft: #eef2ff;
+        --ok: #059669;
+        --ok-soft: #ecfdf5;
+        --warn: #d97706;
+        --warn-soft: #fffbeb;
+        --danger: #dc2626;
+        --danger-soft: #fef2f2;
+        --radius: 14px;
+        --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px -12px rgba(16, 24, 40, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ============ 顶栏 ============ */
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(255, 255, 255, .86);
+        backdrop-filter: saturate(180%) blur(12px);
+        border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 12px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; margin-right: 4px; }
+    .brand-mark {
+        width: 34px; height: 34px; border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid; place-items: center;
+        color: #fff; font-size: 17px;
+        box-shadow: 0 6px 16px -6px rgba(79, 70, 229, .7);
+    }
+    .brand-text h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+    .brand-text p { margin: 0; font-size: 11.5px; color: var(--faint); }
+
+    .pills { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-left: auto; }
+    .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 999px;
+        background: #f3f4f6; border: 1px solid var(--border);
+        font-size: 12px; color: var(--muted); white-space: nowrap;
+    }
+    .pill b { color: var(--text); font-weight: 600; }
+    .pill.ok { background: var(--ok-soft); border-color: #a7f3d0; color: #047857; }
+    .pill.ok b { color: #047857; }
+    .pill.warn { background: var(--warn-soft); border-color: #fde68a; color: #b45309; }
+    .pill.warn b { color: #b45309; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* ============ 布局 ============ */
+    .layout {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 20px 24px 40px;
+        display: grid;
+        grid-template-columns: 372px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+    }
+    @media (max-width: 1080px) {
+        .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 18px;
+        overflow: hidden;
+    }
+    .card-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, #fcfcfd, #fafbfc);
+    }
+    .card-head h2 { margin: 0; font-size: 13.5px; font-weight: 650; letter-spacing: -.005em; }
+    .card-head .sub { font-size: 11.5px; color: var(--faint); font-weight: 400; }
+    .card-head .right { margin-left: auto; display: flex; gap: 8px; }
+    .card-body { padding: 16px 18px; }
+
+    .step-badge {
+        width: 20px; height: 20px; border-radius: 6px; flex: none;
+        background: var(--accent-soft); color: var(--accent);
+        font-size: 11px; font-weight: 700;
+        display: grid; place-items: center;
+    }
+
+    /* ============ 控件 ============ */
+    .btn {
+        border: 1px solid var(--border-strong);
+        background: #fff; color: var(--text);
+        padding: 7px 14px; border-radius: 9px;
+        font-size: 13px; font-family: inherit; font-weight: 500;
+        cursor: pointer; transition: .15s;
+        display: inline-flex; align-items: center; gap: 6px;
+        white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { background: #f9fafb; border-color: #c3c8d1; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        border-color: transparent; color: #fff;
+        box-shadow: 0 6px 16px -8px rgba(79, 70, 229, .9);
+    }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.07); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+    .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
+    .btn-ghost:hover:not(:disabled) { background: #f3f4f6; border-color: transparent; }
+    .btn-danger { color: var(--danger); border-color: #fecaca; background: #fff; }
+    .btn-danger:hover:not(:disabled) { background: var(--danger-soft); }
+
+    input[type=text], input[type=password], input[type=number], textarea, select {
+        width: 100%; padding: 8px 11px;
+        border: 1px solid var(--border-strong); border-radius: 9px;
+        font-size: 13px; font-family: inherit; color: var(--text);
+        background: #fff; transition: .15s;
+    }
+    input:focus, textarea:focus, select:focus {
+        outline: none; border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, .12);
+    }
+    textarea { resize: vertical; line-height: 1.55; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .hint { font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+
+    /* 开关 */
+    .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 12.5px; }
+    .switch input { display: none; }
+    .track {
+        width: 34px; height: 19px; border-radius: 999px; background: #d6dae1;
+        position: relative; transition: .18s; flex: none;
+    }
+    .track::after {
+        content: ''; position: absolute; top: 2px; left: 2px;
+        width: 15px; height: 15px; border-radius: 50%; background: #fff;
+        transition: .18s; box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    }
+    .switch input:checked + .track { background: var(--accent); }
+    .switch input:checked + .track::after { transform: translateX(15px); }
+
+    /* ============ 上传 ============ */
+    .drop {
+        border: 1.5px dashed var(--border-strong); border-radius: 11px;
+        padding: 20px 14px; text-align: center; cursor: pointer;
+        color: var(--muted); font-size: 12.5px; transition: .15s; background: #fcfcfd;
+    }
+    .drop:hover, .drop.hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .drop strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 3px; }
+
+    .doc-list { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+    .doc-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 11px; border-radius: 9px;
+        background: #fafbfc; border: 1px solid var(--border);
+        font-size: 12.5px;
+    }
+    .doc-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-item .count { color: var(--faint); font-size: 11.5px; flex: none; }
+    .doc-item .del {
+        border: none; background: transparent; color: var(--faint);
+        cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 5px; border-radius: 5px;
+    }
+    .doc-item .del:hover { color: var(--danger); background: var(--danger-soft); }
+
+    /* ============ 问答 ============ */
+    .ask-box { position: relative; }
+    .ask-box textarea { min-height: 84px; padding-right: 12px; font-size: 14px; }
+    .ask-row { display: flex; align-items: center; gap: 14px; margin-top: 11px; flex-wrap: wrap; }
+    .ask-row .spacer { flex: 1; }
+
+    .answer {
+        margin-top: 16px; padding: 16px 18px;
+        background: linear-gradient(180deg, #fbfcff, #f8f9ff);
+        border: 1px solid #e4e7fb; border-radius: 12px;
+        font-size: 14px; line-height: 1.75;
+    }
+    .answer h1, .answer h2, .answer h3, .answer h4 { margin: 14px 0 7px; font-size: 14.5px; font-weight: 650; }
+    .answer h1:first-child, .answer h2:first-child, .answer h3:first-child { margin-top: 0; }
+    .answer p { margin: 7px 0; }
+    .answer ul, .answer ol { margin: 7px 0; padding-left: 21px; }
+    .answer li { margin: 3px 0; }
+    .answer code {
+        background: #eef0f6; padding: 1.5px 5px; border-radius: 5px;
+        font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px;
+    }
+    .answer pre.md-code {
+        background: #1e2130; color: #e6e8f0; padding: 12px 14px; border-radius: 9px;
+        overflow-x: auto; font-size: 12.5px; line-height: 1.6;
+    }
+    .answer pre.md-code code { background: none; color: inherit; padding: 0; }
+    .answer blockquote {
+        margin: 8px 0; padding: 4px 0 4px 12px;
+        border-left: 3px solid #c7cdf5; color: var(--muted);
+    }
+    .answer a { color: var(--accent); }
+
+    .eyebrow {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 11.5px; font-weight: 600; color: var(--faint);
+        text-transform: uppercase; letter-spacing: .06em; margin-bottom: 9px;
+    }
+
+    /* 检索轨迹 */
+    .trace { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .trace-node {
+        display: flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 8px;
+        background: #f3f4f6; border: 1px solid var(--border);
+        font-size: 11.5px; color: var(--muted);
+    }
+    .trace-node b { color: var(--text); font-weight: 600; }
+    .trace-node .ms { color: var(--faint); font-variant-numeric: tabular-nums; }
+    .trace-node.done { background: var(--ok-soft); border-color: #a7f3d0; color: #047857; }
+    .trace-node.done b { color: #047857; }
+    .trace-node.off { opacity: .5; }
+    .trace-arrow { color: #cbd0d9; align-self: center; font-size: 11px; }
+
+    /* 改写结果 */
+    .rewrite {
+        margin-top: 12px; padding: 12px 14px;
+        border-radius: 11px; background: #fafbfc; border: 1px solid var(--border);
+        font-size: 12.5px;
+    }
+    .rewrite .line { display: flex; gap: 9px; padding: 3px 0; align-items: baseline; }
+    .rewrite .k { color: var(--faint); flex: none; width: 62px; font-size: 11.5px; }
+    .rewrite .v { color: var(--text); word-break: break-word; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip {
+        padding: 2.5px 8px; border-radius: 6px; font-size: 11.5px;
+        background: #eef0f6; color: #4b5261; border: 1px solid #e2e5ec;
+    }
+    .chip.accent { background: var(--accent-soft); color: var(--accent); border-color: #dcdffb; }
+
+    /* 命中片段 */
+    .hit {
+        border: 1px solid var(--border); border-radius: 11px;
+        padding: 12px 14px; margin-bottom: 9px; background: #fff;
+        transition: .15s;
+    }
+    .hit:hover { border-color: var(--border-strong); box-shadow: 0 4px 14px -8px rgba(16, 24, 40, .18); }
+    .hit-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+    .hit-idx {
+        width: 20px; height: 20px; border-radius: 6px; flex: none;
+        background: #eef0f6; color: #5b6273; font-size: 11px; font-weight: 700;
+        display: grid; place-items: center;
+    }
+    .hit-src { font-weight: 600; font-size: 12.5px; }
+    .hit-sec { font-size: 11.5px; color: var(--faint); }
+    .hit-sec::before { content: '›'; margin-right: 5px; color: #cbd0d9; }
+    .badge {
+        font-size: 10.5px; padding: 1.5px 7px; border-radius: 999px;
+        border: 1px solid; font-weight: 600; letter-spacing: .01em;
+    }
+    .badge.vector { background: #eef2ff; color: #4338ca; border-color: #dcdffb; }
+    .badge.bm25 { background: #ecfeff; color: #0e7490; border-color: #cffafe; }
+    .hit-score { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+    .hit-score b { color: var(--accent); font-weight: 700; }
+    .hit-text {
+        font-size: 12.5px; color: #333a48; line-height: 1.65;
+        max-height: 96px; overflow: hidden; position: relative;
+        white-space: pre-wrap; word-break: break-word;
+    }
+    .hit.open .hit-text { max-height: none; }
+    .hit-more {
+        border: none; background: none; color: var(--accent); cursor: pointer;
+        font-size: 11.5px; padding: 5px 0 0; font-family: inherit;
+    }
+    .metrics { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+    .metric { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+    .metric b { color: #4b5261; font-weight: 600; }
+
+    /* 提示条 */
+    .notice {
+        display: flex; gap: 9px; align-items: flex-start;
+        padding: 10px 13px; border-radius: 10px; font-size: 12.5px;
+        margin-bottom: 12px; line-height: 1.55;
+    }
+    .notice.warn { background: var(--warn-soft); border: 1px solid #fde68a; color: #92400e; }
+    .notice.info { background: #f0f9ff; border: 1px solid #bae6fd; color: #075985; }
+    .notice.err { background: var(--danger-soft); border: 1px solid #fecaca; color: #991b1b; }
+
+    /* 历史 */
+    .history-item {
+        display: flex; align-items: baseline; gap: 10px;
+        padding: 8px 11px; border-radius: 9px; cursor: pointer; transition: .15s;
+        font-size: 12.5px;
+    }
+    .history-item:hover { background: #f3f4f6; }
+    .history-item .q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item .t { color: var(--faint); font-size: 11px; flex: none; }
+
+    /* 加载 */
+    .loading { display: none; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; padding: 16px 0; }
+    .spinner {
+        width: 15px; height: 15px; border-radius: 50%;
+        border: 2px solid #dfe3ea; border-top-color: var(--accent);
+        animation: spin .7s linear infinite; flex: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 弹窗 */
+    .overlay {
+        display: none; position: fixed; inset: 0; z-index: 200;
+        background: rgba(15, 18, 26, .45); backdrop-filter: blur(3px);
+        padding: 32px 16px; overflow-y: auto;
+    }
+    .overlay.open { display: block; }
+    .modal {
+        max-width: 660px; margin: 0 auto; background: #fff;
+        border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(15, 18, 26, .4);
+        overflow: hidden;
+    }
+    .modal-head {
+        padding: 16px 22px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 10px;
+    }
+    .modal-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+    .modal-body { padding: 18px 22px; max-height: 64vh; overflow-y: auto; }
+    .modal-foot {
+        padding: 14px 22px; border-top: 1px solid var(--border);
+        display: flex; justify-content: flex-end; gap: 9px; background: #fafbfc;
+    }
+    .group { margin-bottom: 20px; }
+    .group:last-child { margin-bottom: 0; }
+    .group-title {
+        font-size: 11.5px; font-weight: 700; color: var(--faint);
+        text-transform: uppercase; letter-spacing: .06em;
+        margin-bottom: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 7px;
+    }
+    .group-title .tag {
+        font-size: 10px; padding: 1px 6px; border-radius: 5px;
+        background: var(--accent-soft); color: var(--accent); letter-spacing: 0;
+        text-transform: none; font-weight: 600;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+    .field { margin-bottom: 12px; }
+
+    .toast {
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-8px);
+        background: #14161c; color: #fff; padding: 10px 20px; border-radius: 10px;
+        font-size: 13px; z-index: 300; opacity: 0; pointer-events: none;
+        transition: .2s; max-width: 76vw; text-align: center;
+        box-shadow: 0 12px 32px -10px rgba(0, 0, 0, .5);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .empty { color: var(--faint); font-size: 12.5px; text-align: center; padding: 16px 0; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-mark">◈</div>
+            <div class="brand-text">
+                <h1>RAG 知识库问答</h1>
+                <p>混合检索 · 精排 Rerank · Query 改写 / HyDE</p>
+            </div>
+        </div>
+        <div class="pills">
+            <span class="pill" id="pillChunks">段落 <b>—</b></span>
+            <span class="pill" id="pillDocs">文档 <b>—</b></span>
+            <span class="pill" id="pillEmbed">向量化 <b>检查中</b></span>
+            <span class="pill" id="pillRecall">召回 <b>—</b></span>
+            <span class="pill" id="pillRerank">精排 <b>—</b></span>
+            <button class="btn btn-sm" onclick="openSettings()">⚙ 设置</button>
+        </div>
+    </div>
+</header>
+
+<main class="layout">
+    <!-- ============ 左栏：知识库管理 ============ -->
+    <aside>
+        <div class="card">
+            <div class="card-head">
+                <span class="step-badge">1</span>
+                <h2>知识库</h2>
+                <div class="right">
+                    <button class="btn btn-ghost btn-sm" onclick="clearKnowledge()">清空</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="drop" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <strong>拖拽文件到这里</strong>
+                    或点击选择 .txt / .md / .csv
+                </div>
+                <input type="file" id="fileInput" accept=".txt,.md,.markdown,.csv,.json,.log" multiple style="display:none">
+
+                <div class="field" style="margin-top:12px;">
+                    <label>文档名（可选，留空则取文件名）</label>
+                    <input type="text" id="srcName" placeholder="例如：员工手册">
+                </div>
+
+                <div class="field">
+                    <textarea id="docInput" rows="5" placeholder="也可以直接把内容粘贴到这里…&#10;&#10;支持 Markdown：# 标题会被识别为章节，命中时可以定位到具体章节"></textarea>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <button class="btn btn-primary btn-sm" onclick="uploadText()" id="uploadTextBtn">入库</button>
+                    <span class="hint" id="docPreview"></span>
+                </div>
+
+                <div class="doc-list" id="docList"></div>
+                <div class="empty" id="emptyDocs">暂无文档</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <h2>检索参数</h2>
+                <div class="right">
+                    <button class="btn btn-ghost btn-sm" onclick="resetParams()">恢复默认</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="grid2">
+                    <div class="field" style="margin:0;">
+                        <label>片段数 topK</label>
+                        <input type="number" id="pTopK" min="1" max="50" step="1">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>最终分阈值</label>
+                        <input type="number" id="pMinScore" min="0" max="1" step="0.05">
+                    </div>
+                </div>
+                <div class="field" style="margin:12px 0 0;">
+                    <label>向量召回阈值 minVectorScore</label>
+                    <input type="number" id="pMinVectorScore" min="0" max="1" step="0.05">
+                </div>
+                <div class="hint" style="margin-top:10px;">
+                    留空表示使用服务端默认值。参数仅保存在本浏览器。
+                </div>
+                <button class="btn btn-sm" style="margin-top:11px;width:100%;justify-content:center;" onclick="saveParams()">保存参数</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ 右栏：问答 ============ -->
+    <section>
+        <div class="card">
+            <div class="card-head">
+                <span class="step-badge">2</span>
+                <h2>提问</h2>
+                <span class="sub">检索三层全开，答案只依据命中的片段</span>
+            </div>
+            <div class="card-body">
+                <div class="ask-box">
+                    <textarea id="questionInput" placeholder="输入问题，例如：SpringBoot 自动装配的原理是什么？&#10;&#10;Ctrl / ⌘ + Enter 直接提交"></textarea>
+                </div>
+                <div class="ask-row">
+                    <label class="switch" title="用大模型改写问题：消解指代 + 生成同义变体做多查询扩展">
+                        <input type="checkbox" id="swRewrite" checked><span class="track"></span>Query 改写
+                    </label>
+                    <label class="switch" title="先生成假设答案再检索，短问题/口语化问题效果更好，会多一次大模型调用">
+                        <input type="checkbox" id="swHyde"><span class="track"></span>HyDE
+                    </label>
+                    <span class="spacer"></span>
+                    <button class="btn btn-primary" onclick="askQuestion()" id="askBtn">提问</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading"><span class="spinner"></span><span id="loadingText">检索并思考中…</span></div>
+
+        <div id="resultBox" style="display:none;">
+            <div id="noticeBox"></div>
+
+            <div class="card">
+                <div class="card-head">
+                    <h2>检索轨迹</h2>
+                    <span class="sub" id="traceTotal"></span>
+                </div>
+                <div class="card-body" style="padding-top:12px;padding-bottom:14px;">
+                    <div class="trace" id="traceBar"></div>
+                    <div id="rewriteBox"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <h2>回答</h2>
+                    <div class="right">
+                        <button class="btn btn-ghost btn-sm" onclick="copyAnswer()">复制</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="answer" id="answerContent"></div>
+                </div>
+            </div>
+
+            <div class="card" id="hitsCard">
+                <div class="card-head">
+                    <h2>命中片段</h2>
+                    <span class="sub" id="hitsSummary"></span>
+                </div>
+                <div class="card-body" id="hitsList"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <h2>问答历史</h2>
+                <div class="right">
+                    <button class="btn btn-ghost btn-sm" onclick="clearHistory()">清空</button>
+                </div>
+            </div>
+            <div class="card-body" style="padding-top:10px;padding-bottom:10px;">
+                <div id="historyList"></div>
+                <div class="empty" id="emptyHistory">暂无记录</div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- ============ 设置弹窗 ============ -->
+<div class="overlay" id="settingsModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h2>⚙ 设置</h2>
+            <span class="hint" style="margin-left:auto;">保存后立即生效，重启恢复配置文件默认值</span>
+        </div>
+        <div class="modal-body">
+            <div class="group">
+                <div class="group-title">向量化 Embedding</div>
+                <div class="field">
+                    <label>API Key</label>
+                    <input type="password" id="cfgEmbeddingKey" placeholder="留空则不修改">
+                    <div class="hint" id="embedKeyHint" style="margin-top:5px;"></div>
+                </div>
+                <div class="field">
+                    <label>接口地址</label>
+                    <input type="text" id="cfgEmbeddingUrl">
+                </div>
+                <div class="field" style="margin-bottom:0;">
+                    <label>模型</label>
+                    <input type="text" id="cfgEmbeddingModel">
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">切段</div>
+                <div class="grid3">
+                    <div class="field" style="margin:0;">
+                        <label>块大小</label>
+                        <input type="number" id="cfgChunkSize" min="50" max="2000" step="10">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>重叠字数</label>
+                        <input type="number" id="cfgChunkOverlap" min="0" max="1000" step="5">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>批量条数</label>
+                        <input type="number" id="cfgBatchSize" min="1" max="64" step="1">
+                    </div>
+                </div>
+                <div class="hint" style="margin-top:8px;">只影响之后新入库的文档。</div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">第 1 层 · 混合检索 <span class="tag">向量 + BM25 + RRF</span></div>
+                <div class="field">
+                    <label class="switch"><input type="checkbox" id="cfgHybridEnabled"><span class="track"></span>开启混合检索（关闭则退化为纯向量检索）</label>
+                </div>
+                <div class="grid3" style="margin-top:10px;">
+                    <div class="field" style="margin:0;">
+                        <label>每路召回条数</label>
+                        <input type="number" id="cfgRecallTopK" min="1" max="200" step="1">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>RRF k</label>
+                        <input type="number" id="cfgRrfK" min="1" max="200" step="1">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>向量召回阈值</label>
+                        <input type="number" id="cfgMinVectorScore" min="0" max="1" step="0.05">
+                    </div>
+                </div>
+                <div class="grid2" style="margin-top:12px;">
+                    <div class="field" style="margin:0;">
+                        <label>向量路权重</label>
+                        <input type="number" id="cfgVectorWeight" min="0" max="10" step="0.1">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>BM25 路权重</label>
+                        <input type="number" id="cfgBm25Weight" min="0" max="10" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">第 2 层 · 精排 Rerank</div>
+                <div class="grid3">
+                    <div class="field" style="margin:0;">
+                        <label>模式</label>
+                        <select id="cfgRerankMode">
+                            <option value="auto">auto（推荐）</option>
+                            <option value="local">local 纯 Java</option>
+                            <option value="http">http bge-reranker</option>
+                            <option value="off">off 关闭</option>
+                        </select>
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>候选数</label>
+                        <input type="number" id="cfgRerankCandidates" min="1" max="200" step="1">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>最终分阈值</label>
+                        <input type="number" id="cfgRerankMinScore" min="0" max="1" step="0.05">
+                    </div>
+                </div>
+                <div class="field" style="margin-top:12px;">
+                    <label>bge-reranker 服务地址（留空则用本地精排）</label>
+                    <input type="text" id="cfgRerankApiUrl" placeholder="http://127.0.0.1:8090/rerank">
+                </div>
+                <div class="grid2" style="margin-top:12px;">
+                    <div class="field" style="margin:0;">
+                        <label>精排模型</label>
+                        <input type="text" id="cfgRerankModel">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>超时（毫秒）</label>
+                        <input type="number" id="cfgRerankTimeoutMs" min="500" max="120000" step="500">
+                    </div>
+                </div>
+                <div class="field" style="margin:12px 0 0;">
+                    <label>服务 Key（本地自建可留空）</label>
+                    <input type="password" id="cfgRerankKey" placeholder="留空则不修改">
+                </div>
+                <div class="hint" style="margin-top:9px;">
+                    首次使用建议先跑 <code>tools/bge-reranker-service</code>，再把地址填到这里；
+                    服务不可用时会自动降级为本地精排，不会中断问答。
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">第 3 层 · Query 改写 / HyDE</div>
+                <div class="grid2">
+                    <div class="field" style="margin:0;">
+                        <label class="switch"><input type="checkbox" id="cfgRewriteEnabled"><span class="track"></span>默认开启 Query 改写</label>
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label class="switch"><input type="checkbox" id="cfgHydeEnabled"><span class="track"></span>默认开启 HyDE</label>
+                    </div>
+                </div>
+                <div class="field" style="margin:12px 0 0;">
+                    <label>同义改写条数</label>
+                    <input type="number" id="cfgRewriteVariants" min="0" max="5" step="1">
+                </div>
+            </div>
+
+            <div class="hint">当前落盘文件：<span id="cfgStorePath">-</span></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" onclick="closeSettings()">取消</button>
+            <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ==================== 全局状态 ====================
+let params = { topK: null, minScore: null, minVectorScore: null };
+let history = [];
+let lastAnswer = '';
+let lastResult = null;
+const PARAMS_KEY = 'kb2_search_params';
+const HISTORY_KEY = 'kb2_qa_history';
+
+loadParams();
+loadStatus();
+loadHistory();
+bindDropZone();
+bindCharCount();
+
+// ==================== 状态 ====================
+async function loadStatus() {
+    try {
+        const data = await (await fetch('/kb/status')).json();
+        setPill('pillChunks', '段落', (data.chunkCount ?? 0), true);
+        setPill('pillDocs', '文档', (data.documents || []).length, true);
+        const embedOk = !!data.embeddingConfigured;
+        setPill('pillEmbed', '向量化', embedOk ? (data.embeddingModel || '就绪') : '未配置', embedOk);
+        setPill('pillRecall', '召回', data.retrievalMode === 'hybrid' ? 'hybrid' : 'vector', data.retrievalMode === 'hybrid');
+        setPill('pillRerank', '精排', rerankLabel(data.rerankMode), data.rerankMode !== 'off');
+        renderDocs(data.documents || []);
+    } catch (e) {
+        setPill('pillChunks', '段落', '异常', false);
+    }
+}
+
+function rerankLabel(mode) {
+    if (mode === 'off') return 'off';
+    if (mode === 'http') return 'bge-reranker';
+    if (mode === 'local') return 'local';
+    return mode || '—';
+}
+
+function setPill(id, label, value, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'pill' + (ok ? ' ok' : ' warn');
+    el.innerHTML = label + ' <b></b>';
+    el.querySelector('b').textContent = value;
+}
+
+function renderDocs(docs) {
+    const box = document.getElementById('docList');
+    box.innerHTML = '';
+    document.getElementById('emptyDocs').style.display = docs.length ? 'none' : 'block';
+    docs.forEach(d => {
+        const item = document.createElement('div');
+        item.className = 'doc-item';
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = d.source;
+        name.title = d.source;
+        const count = document.createElement('span');
+        count.className = 'count';
+        count.textContent = d.count + ' 段';
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '×';
+        del.title = '删除该文档';
+        del.onclick = () => deleteDoc(d.source);
+        item.append(name, count, del);
+        box.appendChild(item);
+    });
+}
+
+// ==================== 上传 ====================
+function bindDropZone() {
+    const zone = document.getElementById('dropZone');
+    const input = document.getElementById('fileInput');
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => {
+        e.preventDefault();
+        zone.classList.add('hover');
+    }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => {
+        e.preventDefault();
+        zone.classList.remove('hover');
+    }));
+    zone.addEventListener('drop', e => {
+        const files = Array.from(e.dataTransfer.files || []);
+        if (files.length) uploadFiles(files);
+    });
+    input.addEventListener('change', () => {
+        const files = Array.from(input.files || []);
+        if (files.length) uploadFiles(files);
+        input.value = '';
+    });
+}
+
+function bindCharCount() {
+    const ta = document.getElementById('docInput');
+    ta.addEventListener('input', () => {
+        document.getElementById('docPreview').textContent = ta.value.trim() ? ta.value.length + ' 字' : '';
+    });
+    document.getElementById('questionInput').addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') askQuestion();
+    });
+}
+
+async function uploadFiles(files) {
+    const source = document.getElementById('srcName').value.trim();
+    for (const file of files) {
+        await uploadOneFile(file, source);
+    }
+    loadStatus();
+}
+
+async function uploadOneFile(file, source) {
+    if (file.size > 10 * 1024 * 1024) {
+        toast('「' + file.name + '」超过 10MB，已跳过');
+        return;
+    }
+    const form = new FormData();
+    form.append('file', file);
+    if (source) form.append('source', source);
+    toast('正在解析并向量化「' + file.name + '」…');
+    try {
+        const data = await (await fetch('/kb/upload-file', { method: 'POST', body: form })).json();
+        toast(data.message || (data.success ? '入库成功' : '入库失败'));
+    } catch (e) {
+        toast('上传失败：' + e.message);
+    }
+}
+
+async function uploadText() {
+    const input = document.getElementById('docInput');
+    const content = input.value.trim();
+    if (!content) {
+        toast('请先粘贴内容');
+        return;
+    }
+    const btn = document.getElementById('uploadTextBtn');
+    btn.disabled = true;
+    btn.textContent = '入库中…';
+    try {
+        const res = await fetch('/kb/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content, source: document.getElementById('srcName').value.trim() })
+        });
+        const data = await res.json();
+        toast(data.message || (data.success ? '入库成功' : '入库失败'));
+        if (data.success) {
+            input.value = '';
+            document.getElementById('docPreview').textContent = '';
+            loadStatus();
+        }
+    } catch (e) {
+        toast('入库失败：' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '入库';
+    }
+}
+
+async function deleteDoc(source) {
+    if (!confirm('确定删除文档「' + source + '」的全部段落吗？')) return;
+    try {
+        const data = await (await fetch('/kb/document/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: source })
+        })).json();
+        toast(data.message || '操作完成');
+        loadStatus();
+    } catch (e) {
+        toast('删除失败：' + e.message);
+    }
+}
+
+async function clearKnowledge() {
+    if (!confirm('确定清空知识库吗？落盘文件也会被删除，此操作不可恢复。')) return;
+    try {
+        const data = await (await fetch('/kb/clear', { method: 'POST' })).json();
+        toast(data.message || '已清空');
+        loadStatus();
+    } catch (e) {
+        toast('操作失败：' + e.message);
+    }
+}
+
+// ==================== 提问 ====================
+async function askQuestion() {
+    const question = document.getElementById('questionInput').value.trim();
+    if (!question) {
+        toast('请输入问题');
+        return;
+    }
+    const btn = document.getElementById('askBtn');
+    const loading = document.getElementById('loading');
+    btn.disabled = true;
+    loading.style.display = 'flex';
+
+    const payload = {
+        question: question,
+        useRewrite: document.getElementById('swRewrite').checked,
+        useHyde: document.getElementById('swHyde').checked,
+        history: recentHistory()
+    };
+    if (params.topK != null) payload.topK = params.topK;
+    if (params.minScore != null) payload.minScore = params.minScore;
+    if (params.minVectorScore != null) payload.minVectorScore = params.minVectorScore;
+
+    const texts = ['正在改写问题…', '双路召回中…', '精排中…', '生成答案中…'];
+    let step = 0;
+    const ticker = setInterval(() => {
+        step = (step + 1) % texts.length;
+        document.getElementById('loadingText').textContent = texts[step];
+    }, 900);
+
+    try {
+        const data = await (await fetch('/kb/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })).json();
+        lastResult = data;
+        renderResult(question, data);
+        pushHistory(question, data);
+    } catch (e) {
+        toast('请求失败：' + e.message);
+    } finally {
+        clearInterval(ticker);
+        btn.disabled = false;
+        loading.style.display = 'none';
+    }
+}
+
+function recentHistory() {
+    const lines = [];
+    history.slice(0, 2).reverse().forEach(item => {
+        lines.push('Q: ' + item.q);
+        if (item.a) lines.push('A: ' + String(item.a).slice(0, 160));
+    });
+    return lines;
+}
+
+function renderResult(question, data) {
+    const box = document.getElementById('resultBox');
+    box.style.display = 'block';
+
+    // 提示条
+    const notices = [];
+    if (data.success === false && data.found) {
+        notices.push(['err', '检索成功，但生成答案失败：' + (data.message || '未知原因') + '。下方片段仍然可用。']);
+    }
+    const r = data.retrieval || {};
+    if (r.vectorDegraded) {
+        notices.push(['warn', '向量化服务不可用，本次已降级为纯 BM25 关键词检索。' + (r.vectorDegradedReason ? '（' + r.vectorDegradedReason + '）' : '')]);
+    }
+    if (r.rerankDegraded) {
+        notices.push(['warn', r.rerankDetail || '远程精排不可用，已降级为本地精排。']);
+    }
+    if (data.found === false) {
+        notices.push(['info', data.message || '未找到相关内容']);
+    }
+    document.getElementById('noticeBox').innerHTML = notices
+        .map(n => '<div class="notice ' + n[0] + '">' + escapeHtml(n[1]) + '</div>').join('');
+
+    lastAnswer = data.answer || '';
+    document.getElementById('answerContent').innerHTML = data.answer
+        ? renderMarkdown(data.answer)
+        : '<p style="color:#9aa1ad;margin:0;">（本次没有生成答案）</p>';
+
+    renderTrace(r);
+    renderRewrite(data.query || {});
+    renderHits(data.hits || [], r);
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderTrace(r) {
+    const bar = document.getElementById('traceBar');
+    const q = lastResult && lastResult.query ? lastResult.query : {};
+    const t = r.timingsMs || {};
+    const nodes = [];
+
+    nodes.push(['改写', q.rewriteUsed ? (q.hydeUsed ? '改写 + HyDE' : '已改写') : '未启用', t.rewriteMs, !!q.rewriteUsed || !!q.hydeUsed]);
+    nodes.push(['向量化', '批量 1 次', t.embedMs, !r.vectorDegraded]);
+    nodes.push([r.mode === 'hybrid' ? '双路召回' : '单路召回',
+        (r.recalled ?? 0) + ' 条候选', t.recallMs, true]);
+    nodes.push(['RRF 融合', '排名倒数求和', null, r.mode === 'hybrid']);
+    nodes.push(['精排 ' + rerankLabel(r.rerankMode), (r.reranked ?? 0) + ' → ' + (r.returned ?? 0), t.rerankMs, r.rerankMode !== 'off']);
+    nodes.push(['生成', (r.returned ?? 0) + ' 片段入 Prompt', t.llmMs, true]);
+
+    bar.innerHTML = nodes.map((n, i) => {
+        const cls = 'trace-node' + (n[3] ? ' done' : ' off');
+        const ms = n[2] != null ? '<span class="ms">' + n[2] + 'ms</span>' : '';
+        const arrow = i < nodes.length - 1 ? '<span class="trace-arrow">›</span>' : '';
+        return '<span class="' + cls + '"><b>' + escapeHtml(n[0]) + '</b>' + escapeHtml(String(n[1])) + ms + '</span>' + arrow;
+    }).join('');
+
+    document.getElementById('traceTotal').textContent = t.totalMs != null ? '总耗时 ' + t.totalMs + ' ms' : '';
+}
+
+function renderRewrite(q) {
+    const box = document.getElementById('rewriteBox');
+    const rows = [];
+
+    if (q.rewriteUsed || q.hydeUsed) {
+        if (q.standalone && q.standalone !== q.original) {
+            rows.push('<div class="line"><span class="k">独立问题</span><span class="v">' + escapeHtml(q.standalone) + '</span></div>');
+        }
+        if ((q.variants || []).length) {
+            rows.push('<div class="line"><span class="k">同义改写</span><span class="v"><span class="chips">'
+                + q.variants.map(v => '<span class="chip">' + escapeHtml(v) + '</span>').join('') + '</span></span></div>');
+        }
+        if ((q.keywords || []).length) {
+            rows.push('<div class="line"><span class="k">关键词</span><span class="v"><span class="chips">'
+                + q.keywords.map(v => '<span class="chip accent">' + escapeHtml(v) + '</span>').join('') + '</span></span></div>');
+        }
+        if (q.hydeUsed) {
+            rows.push('<div class="line"><span class="k">HyDE</span><span class="v">已生成 ' + q.hydeChars + ' 字的假设答案，仅用于检索、不进入最终 Prompt</span></div>');
+        }
+    } else if (q.rewriteError) {
+        rows.push('<div class="line"><span class="k">改写</span><span class="v">未生效（' + escapeHtml(q.rewriteError) + '），已用原问题继续检索</span></div>');
+    }
+
+    box.innerHTML = rows.length ? '<div class="rewrite">' + rows.join('') + '</div>' : '';
+}
+
+function renderHits(hits, r) {
+    const card = document.getElementById('hitsCard');
+    const list = document.getElementById('hitsList');
+    list.innerHTML = '';
+    if (!hits.length) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = 'block';
+    document.getElementById('hitsSummary').textContent =
+        hits.length + ' 条 · 召回 ' + (r.recalled ?? 0) + ' 条 → 精排 ' + (r.reranked ?? 0) + ' 条';
+
+    hits.forEach((h, i) => {
+        const el = document.createElement('div');
+        el.className = 'hit';
+
+        const head = document.createElement('div');
+        head.className = 'hit-head';
+
+        const idx = document.createElement('span');
+        idx.className = 'hit-idx';
+        idx.textContent = i + 1;
+
+        const src = document.createElement('span');
+        src.className = 'hit-src';
+        src.textContent = h.source || '未知文档';
+
+        head.append(idx, src);
+
+        if (h.section) {
+            const sec = document.createElement('span');
+            sec.className = 'hit-sec';
+            sec.textContent = h.section;
+            sec.title = h.section;
+            head.appendChild(sec);
+        }
+
+        (h.routes || []).forEach(route => {
+            const b = document.createElement('span');
+            b.className = 'badge ' + route;
+            b.textContent = route === 'vector' ? '向量' : 'BM25';
+            b.title = route === 'vector' ? '由向量召回命中' : '由 BM25 关键词召回命中';
+            head.appendChild(b);
+        });
+
+        const score = document.createElement('span');
+        score.className = 'hit-score';
+        score.innerHTML = '最终分 <b>' + (h.score != null ? h.score.toFixed(3) : '-') + '</b>';
+        head.appendChild(score);
+
+        const text = document.createElement('div');
+        text.className = 'hit-text';
+        text.textContent = h.text || '';
+        if ((h.text || '').length > 150) {
+            const more = document.createElement('button');
+            more.className = 'hit-more';
+            more.textContent = '展开全部 ▾';
+            more.onclick = () => {
+                el.classList.toggle('open');
+                more.textContent = el.classList.contains('open') ? '收起 ▴' : '展开全部 ▾';
+            };
+            el.append(head, text, more);
+        } else {
+            el.append(head, text);
+        }
+
+        const metrics = document.createElement('div');
+        metrics.className = 'metrics';
+        metrics.innerHTML = metric('向量', h.vectorScore) + metric('BM25', h.bm25Score)
+            + metric('RRF', h.rrfScore) + metric('精排', h.rerankScore)
+            + '<span class="metric">命中查询 <b>' + ((h.matchedQueries || []).join(' / ') || '-') + '</b></span>';
+        el.appendChild(metrics);
+
+        list.appendChild(el);
+    });
+}
+
+function metric(label, value) {
+    if (value == null) return '<span class="metric">' + label + ' <b>—</b></span>';
+    return '<span class="metric">' + label + ' <b>' + fmtScore(value) + '</b></span>';
+}
+
+/** BM25 无上界（可能是 37.86），余弦/精排都在 [0,1]，按量级选小数位，避免噪声或精度丢失 */
+function fmtScore(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    if (Math.abs(n) >= 10) return n.toFixed(2);
+    return n.toFixed(4);
+}
+
+function copyAnswer() {
+    if (!lastAnswer) {
+        toast('没有可复制的内容');
+        return;
+    }
+    const done = () => toast('已复制到剪贴板');
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(lastAnswer).then(done).catch(() => fallbackCopy(lastAnswer, done));
+    } else {
+        fallbackCopy(lastAnswer, done);
+    }
+}
+
+function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        done();
+    } catch (e) {
+        toast('复制失败，请手动选择文本');
+    }
+    document.body.removeChild(ta);
+}
+
+// ==================== 检索参数 ====================
+function loadParams() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}');
+        params.topK = saved.topK ?? null;
+        params.minScore = saved.minScore ?? null;
+        params.minVectorScore = saved.minVectorScore ?? null;
+    } catch (e) {
+        params = { topK: null, minScore: null, minVectorScore: null };
+    }
+    document.getElementById('pTopK').value = params.topK ?? '';
+    document.getElementById('pMinScore').value = params.minScore ?? '';
+    document.getElementById('pMinVectorScore').value = params.minVectorScore ?? '';
+}
+
+function saveParams() {
+    params.topK = numOrNull('pTopK');
+    params.minScore = numOrNull('pMinScore');
+    params.minVectorScore = numOrNull('pMinVectorScore');
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    toast('检索参数已保存（仅本浏览器生效）');
+}
+
+function resetParams() {
+    params = { topK: null, minScore: null, minVectorScore: null };
+    localStorage.removeItem(PARAMS_KEY);
+    loadParams();
+    toast('已恢复服务端默认参数');
+}
+
+function numOrNull(id) {
+    const v = document.getElementById(id).value.trim();
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+// ==================== 历史 ====================
+function loadHistory() {
+    try {
+        history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    } catch (e) {
+        history = [];
+    }
+    renderHistory();
+}
+
+function pushHistory(question, data) {
+    history.unshift({
+        q: question,
+        a: data.answer || '',
+        hits: (data.hits || []).slice(0, 5),
+        query: data.query || {},
+        retrieval: data.retrieval || {},
+        message: data.message || '',
+        found: data.found,
+        t: new Date().toLocaleString()
+    });
+    history = history.slice(0, 20);
+    try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+        history = history.slice(0, 5);
+    }
+    renderHistory();
+}
+
+function renderHistory() {
+    const box = document.getElementById('historyList');
+    box.innerHTML = '';
+    document.getElementById('emptyHistory').style.display = history.length ? 'none' : 'block';
+    history.forEach((item, idx) => {
+        const el = document.createElement('div');
+        el.className = 'history-item';
+        const q = document.createElement('span');
+        q.className = 'q';
+        q.textContent = item.q;
+        const t = document.createElement('span');
+        t.className = 't';
+        t.textContent = item.t || '';
+        el.append(q, t);
+        el.onclick = () => replayHistory(idx);
+        box.appendChild(el);
+    });
+}
+
+function replayHistory(idx) {
+    const item = history[idx];
+    if (!item) return;
+    document.getElementById('questionInput').value = item.q;
+    lastResult = { query: item.query || {}, retrieval: item.retrieval || {} };
+    renderResult(item.q, {
+        success: true,
+        found: item.found,
+        message: item.message,
+        answer: item.a,
+        hits: item.hits || [],
+        query: item.query || {},
+        retrieval: item.retrieval || {}
+    });
+}
+
+function clearHistory() {
+    if (!confirm('确定清空本地问答历史吗？')) return;
+    history = [];
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    toast('历史已清空');
+}
+
+// ==================== 设置 ====================
+async function openSettings() {
+    document.getElementById('settingsModal').classList.add('open');
+    let data = null;
+    try {
+        data = await (await fetch('/kb/config')).json();
+    } catch (e) {
+        toast('读取配置失败');
+        return;
+    }
+    document.getElementById('cfgEmbeddingKey').value = '';
+    document.getElementById('cfgEmbeddingKey').placeholder =
+        data.hasEmbeddingKey ? '已配置（' + (data.embeddingApiKey || '••••') + '）' : '请输入 Embedding API Key';
+    document.getElementById('embedKeyHint').textContent = data.hasEmbeddingKey
+        ? '当前已配置，留空表示不修改'
+        : '未配置时无法向量化；混合检索开启时可退化为纯 BM25 关键词检索';
+    setVal('cfgEmbeddingUrl', data.embeddingApiUrl);
+    setVal('cfgEmbeddingModel', data.embeddingModel);
+    setVal('cfgChunkSize', data.chunkSize);
+    setVal('cfgChunkOverlap', data.chunkOverlap);
+    setVal('cfgBatchSize', data.batchSize);
+
+    document.getElementById('cfgHybridEnabled').checked = !!data.hybridEnabled;
+    setVal('cfgRecallTopK', data.recallTopK);
+    setVal('cfgRrfK', data.rrfK);
+    setVal('cfgMinVectorScore', data.minVectorScore);
+    setVal('cfgVectorWeight', data.vectorWeight);
+    setVal('cfgBm25Weight', data.bm25Weight);
+
+    setVal('cfgRerankMode', data.rerankMode);
+    setVal('cfgRerankCandidates', data.rerankCandidates);
+    setVal('cfgRerankMinScore', data.rerankMinScore);
+    setVal('cfgRerankApiUrl', data.rerankApiUrl);
+    setVal('cfgRerankModel', data.rerankModel);
+    setVal('cfgRerankTimeoutMs', data.rerankTimeoutMs);
+    document.getElementById('cfgRerankKey').value = '';
+    document.getElementById('cfgRerankKey').placeholder = data.hasRerankKey ? '已配置，留空不修改' : '留空即可（本地自建）';
+
+    document.getElementById('cfgRewriteEnabled').checked = !!data.rewriteEnabled;
+    document.getElementById('cfgRewriteVariants').value = data.rewriteVariants ?? 2;
+    document.getElementById('cfgHydeEnabled').checked = !!data.hydeEnabled;
+
+    document.getElementById('cfgStorePath').textContent = data.storePath || '-';
+}
+
+function setVal(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value == null ? '' : value;
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('open');
+}
+
+async function saveSettings() {
+    const body = {
+        embeddingApiKey: val('cfgEmbeddingKey'),
+        embeddingApiUrl: val('cfgEmbeddingUrl'),
+        embeddingModel: val('cfgEmbeddingModel'),
+        chunkSize: numOrNull('cfgChunkSize'),
+        chunkOverlap: numOrNull('cfgChunkOverlap'),
+        batchSize: numOrNull('cfgBatchSize'),
+
+        hybridEnabled: document.getElementById('cfgHybridEnabled').checked,
+        recallTopK: numOrNull('cfgRecallTopK'),
+        rrfK: numOrNull('cfgRrfK'),
+        minVectorScore: numOrNull('cfgMinVectorScore'),
+        vectorWeight: numOrNull('cfgVectorWeight'),
+        bm25Weight: numOrNull('cfgBm25Weight'),
+
+        topK: numOrNull('pTopK'),
+        rerankMode: document.getElementById('cfgRerankMode').value,
+        rerankCandidates: numOrNull('cfgRerankCandidates'),
+        rerankMinScore: numOrNull('cfgRerankMinScore'),
+        rerankApiUrl: val('cfgRerankApiUrl'),
+        rerankModel: val('cfgRerankModel'),
+        rerankTimeoutMs: numOrNull('cfgRerankTimeoutMs'),
+        rerankApiKey: val('cfgRerankKey'),
+
+        rewriteEnabled: document.getElementById('cfgRewriteEnabled').checked,
+        rewriteVariants: numOrNull('cfgRewriteVariants'),
+        hydeEnabled: document.getElementById('cfgHydeEnabled').checked
+    };
+    Object.keys(body).forEach(k => {
+        if (body[k] === null || body[k] === undefined) delete body[k];
+    });
+    try {
+        const res = await fetch('/kb/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        closeSettings();
+        toast('设置已保存');
+        loadStatus();
+        document.getElementById('swRewrite').checked = !!data.rewriteEnabled;
+        document.getElementById('swHyde').checked = !!data.hydeEnabled;
+    } catch (e) {
+        toast('保存失败：' + e.message);
+    }
+}
+
+function val(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+}
+
+// ==================== Markdown（先转义再格式化，避免 XSS） ====================
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderMarkdown(src) {
+    if (!src) return '';
+    const blocks = [];
+    let text = String(src).replace(/```([^\n`]*)\n([\s\S]*?)```/g, (m, lang, code) => {
+        blocks.push('<pre class="md-code"><code>' + escapeHtml(code.replace(/\n$/, '')) + '</code></pre>');
+        return '\u0000B' + (blocks.length - 1) + '\u0000';
+    });
+    text = escapeHtml(text);
+    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(^|[\s（(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    text = text.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    const lines = text.split('\n');
+    let html = '';
+    let listType = null;
+    const closeList = () => {
+        if (listType) {
+            html += '</' + listType + '>';
+            listType = null;
+        }
+    };
+    for (const raw of lines) {
+        const line = raw.replace(/\s+$/, '');
+        const blockRef = line.match(/^\u0000B(\d+)\u0000\s*$/);
+        if (blockRef) {
+            closeList();
+            html += blocks[Number(blockRef[1])];
+            continue;
+        }
+        if (!line.trim()) {
+            closeList();
+            continue;
+        }
+        const heading = line.match(/^(#{1,6})\s+(.*)$/);
+        if (heading) {
+            closeList();
+            const level = Math.min(heading[1].length + 2, 6);
+            html += '<h' + level + '>' + heading[2] + '</h' + level + '>';
+            continue;
+        }
+        if (/^\s*[-*+]\s+/.test(line)) {
+            if (listType !== 'ul') {
+                closeList();
+                html += '<ul>';
+                listType = 'ul';
+            }
+            html += '<li>' + line.replace(/^\s*[-*+]\s+/, '') + '</li>';
+            continue;
+        }
+        const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+        if (ordered) {
+            if (listType !== 'ol') {
+                closeList();
+                html += '<ol>';
+                listType = 'ol';
+            }
+            html += '<li>' + ordered[1] + '</li>';
+            continue;
+        }
+        if (/^&gt;\s?/.test(line)) {
+            closeList();
+            html += '<blockquote>' + line.replace(/^&gt;\s?/, '') + '</blockquote>';
+            continue;
+        }
+        closeList();
+        html += '<p>' + line.replace(/\s{2,}$/, '<br>') + '</p>';
+    }
+    closeList();
+    return html;
+}
+
+// ==================== Toast ====================
+let toastTimer = null;
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// 点击遮罩关闭设置
+document.getElementById('settingsModal').addEventListener('click', e => {
+    if (e.target.id === 'settingsModal') closeSettings();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSettings();
+});
+</script>
+</body>
+</html>

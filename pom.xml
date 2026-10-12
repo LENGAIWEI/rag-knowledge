@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.example</groupId>
+    <artifactId>rag-knowledge</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>rag-knowledge</name>
+    <description>RAG 知识库问答 v2：混合检索（向量 + BM25 + RRF）+ 精排 Rerank + Query 改写 / HyDE</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <!--
+      检索三层能力全部用 JDK 原生实现，刻意不引入 Lucene / DJL / ONNX Runtime：
+      1. BM25 倒排索引与 RRF 融合为纯 Java 手写，便于面试讲清每个公式；
+      2. 本地精排（LexicalReranker）为纯 Java 特征融合，零模型、零下载；
+      3. 若需要真正的 bge-reranker 交叉编码器，通过 kb.rerank.api-url 指向本地推理服务即可，
+         应用本身仍然零新增依赖（见 tools/bge-reranker-service）。
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

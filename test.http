@@ -1,0 +1,118 @@
+### RAG 知识库问答 v2 —— 接口调试脚本
+### IDEA HTTP Client / VS Code REST Client 均可直接运行。
+
+@host = http://localhost:8081
+
+### 知识库状态：段落数、文档清单、向量化与检索/精排模式
+GET {{host}}/kb/status
+
+### 读取全部配置（密钥打码）
+GET {{host}}/kb/config
+
+### 修改配置：切到本地精排 + 打开 HyDE
+POST {{host}}/kb/config
+Content-Type: application/json
+
+{
+  "rerankMode": "local",
+  "hydeEnabled": true,
+  "rewriteVariants": 2,
+  "recallTopK": 10,
+  "rrfK": 60
+}
+
+### 修改配置：接入本地 bge-reranker 服务（服务没起会自动降级为本地精排）
+POST {{host}}/kb/config
+Content-Type: application/json
+
+{
+  "rerankMode": "http",
+  "rerankApiUrl": "http://127.0.0.1:8090/rerank",
+  "rerankModel": "bge-reranker-v2-m3",
+  "rerankTimeoutMs": 8000
+}
+
+### 粘贴文本入库（支持 Markdown 标题，会被识别为章节）
+POST {{host}}/kb/upload
+Content-Type: application/json
+
+{
+  "source": "员工手册",
+  "content": "# 员工手册\n\n## 请假制度\n\n### 年假\n\n工龄满一年享五天年假，满三年享十天。\n\n### 事假\n\n事假需提前一天申请，全年累计不超过十五天。"
+}
+
+### 上传文件入库
+POST {{host}}/kb/upload-file
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="source"
+
+员工手册
+------Boundary
+Content-Disposition: form-data; name="file"; filename="handbook.md"
+Content-Type: text/markdown
+
+# 员工手册
+
+## 请假制度
+
+工龄满一年享五天年假。
+------Boundary--
+
+### 提问：三层检索全开（改写 + 向量 + BM25 + 本地精排）
+POST {{host}}/kb/ask
+Content-Type: application/json
+
+{
+  "question": "年假有几天？",
+  "topK": 3,
+  "useRewrite": true,
+  "useHyde": false
+}
+
+### 提问：带多轮历史，验证指代消解（"它"应被改写成"年假"）
+POST {{host}}/kb/ask
+Content-Type: application/json
+
+{
+  "question": "它需要提前几天申请？",
+  "history": [
+    "Q: 公司的年假是怎么规定的？",
+    "A: 工龄满一年享五天年假，满三年享十天。"
+  ],
+  "useRewrite": true
+}
+
+### 提问：打开 HyDE，并用严格阈值（更容易触发拒答）
+POST {{host}}/kb/ask
+Content-Type: application/json
+
+{
+  "question": "年假？",
+  "topK": 3,
+  "minScore": 0.35,
+  "useRewrite": true,
+  "useHyde": true
+}
+
+### 提问：关闭改写，做消融对比（看改写到底带来了什么）
+POST {{host}}/kb/ask
+Content-Type: application/json
+
+{
+  "question": "年假有几天？",
+  "useRewrite": false,
+  "useHyde": false
+}
+
+### 按文档名删除
+POST {{host}}/kb/document/delete
+Content-Type: application/json
+
+{
+  "source": "员工手册"
+}
+
+### 清空知识库（同时删除落盘文件）
+POST {{host}}/kb/clear
