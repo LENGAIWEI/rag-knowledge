@@ -116,3 +116,84 @@ Content-Type: application/json
 
 ### 清空知识库（同时删除落盘文件）
 POST {{host}}/kb/clear
+
+
+###############################################################################
+###  评测（详见 docs/评测与调参.md）
+###  评的是检索质量，不调用大模型生成答案，所以可以放心反复跑。
+###############################################################################
+
+### 读取评测集
+GET {{host}}/kb/eval/set
+
+### 内置消融档位
+GET {{host}}/kb/eval/profiles
+
+### 让大模型按文档自动生成评测用例（replace=false 表示合并而不是覆盖）
+POST {{host}}/kb/eval/generate
+Content-Type: application/json
+
+{
+  "perDocument": 3,
+  "replace": false
+}
+
+### 快速回归：只跑 v1 基线和当前默认两档（十几秒）
+POST {{host}}/kb/eval/run
+Content-Type: application/json
+
+{
+  "mode": "quick",
+  "topK": 10
+}
+
+### 完整消融：6 个档位逐层叠加（约 4 分钟）
+POST {{host}}/kb/eval/run
+Content-Type: application/json
+
+{
+  "mode": "standard",
+  "topK": 10
+}
+
+### 只看某几档
+POST {{host}}/kb/eval/run
+Content-Type: application/json
+
+{
+  "profiles": ["① 纯向量", "④ 混合+精排"],
+  "topK": 10
+}
+
+### 扫参数：关掉最终分门槛，看它卡掉了多少本该命中的候选
+POST {{host}}/kb/eval/run
+Content-Type: application/json
+
+{
+  "profiles": ["④ 混合+精排"],
+  "topK": 10,
+  "minScore": 0
+}
+
+### 整体替换评测集（手工编辑时用；章节路径要原样照抄知识库里的标题）
+POST {{host}}/kb/eval/set
+Content-Type: application/json
+
+{
+  "cases": [
+    {
+      "id": "manual-exact-1",
+      "question": "@EnableAutoConfiguration 到底做了什么？",
+      "expectSource": "SpringBoot核心基础",
+      "expectSection": "自动装配",
+      "expectNoAnswer": false,
+      "note": "专有名词，精确匹配"
+    },
+    {
+      "id": "manual-refuse-1",
+      "question": "我们公司年假有几天？",
+      "expectNoAnswer": true,
+      "note": "知识库里没有，应拒答"
+    }
+  ]
+}

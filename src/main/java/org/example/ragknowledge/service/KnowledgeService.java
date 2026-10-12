@@ -191,19 +191,42 @@ public class KnowledgeService {
      * @param useRewrite    本次是否启用 Query 改写
      * @param useHyde       本次是否启用 HyDE
      */
-    public Answer ask(String question,
-                      List<String> history,
-                      Integer topK,
-                      Double minScore,
-                      Double minVectorScore,
-                      Boolean useRewrite,
-                      Boolean useHyde) {
+    /**
+     * 只做检索、不做生成的返回结果。
+     *
+     * <p>评测必须走这条路：它要评的是"召回和排序得好不好"，而不是"大模型答得好不好"。
+     * 走完整链路的话，几十条用例就是几十次大模型调用，既慢又花钱，
+     * 而且生成质量会污染检索指标的信号。</p>
+     *
+     * @param contexts 已格式化的片段文本（含来源与章节），供 {@link #ask} 拼 Prompt
+     * @param info     timingsMs 是可变的，{@code ask} 会在生成后往里补 llmMs / totalMs
+     */
+    public record Retrieval(AskQuery query, RetrievalInfo info, List<Hit> hits,
+                            boolean found, List<String> contexts) {
+    }
+
+    /**
+     * 执行检索链路（Query 改写 → 双路召回 → RRF 融合 → 精排 → 阈值截断），不调用大模型。
+     *
+     * @param hybridOverride   覆盖召回配置；null 表示用全局配置。评测做消融对比时用
+     * @param rerankModeOverride 覆盖精排模式；null 表示按配置决定
+     */
+    public Retrieval retrieve(String question,
+                              List<String> history,
+                              Integer topK,
+                              Double minScore,
+                              Double minVectorScore,
+                              Boolean useRewrite,
+                              Boolean useHyde,
+                              KnowledgeProperties.Hybrid hybridOverride,
+                              String rerankModeOverride) {
         if (question == null || question.isBlank()) {
             throw new KnowledgeException("问题不能为空！");
         }
         if (store.size() == 0) {
             throw new KnowledgeException("知识库为空，请先在「第1步：添加文档」上传内容后再提问");
         }
+        KnowledgeProperties.Hybrid hybrid = hybridOverride != null ? hybridOverride : properties.getHybrid();
 
         Map<String, Long> timings = new LinkedHashMap<>();
         long startAll = System.currentTimeMillis();
@@ -241,7 +264,7 @@ public class KnowledgeService {
         double[][] vectors = new double[planned.size()][];
         String embedError = null;
         try {
-            List<double[]> embedded = embeddingClient.embedBatch(textsToEmbed);
+            List<double[]> embedded = embeddingClient.embedQueries(textsToEmbed);
             for (int k = 0; k < vectorSlots.size() && k < embedded.size(); k++) {
                 vectors[vectorSlots.get(k)] = embedded.get(k);
             }
@@ -249,7 +272,7 @@ public class KnowledgeService {
             // 向量化失败不等于问答失败：BM25 这一路完全不依赖 Embedding 服务，
             // 只要开着混合检索就还能继续关键词召回。宁可给出"降级但可用"的答案，
             // 也不要因为一个外部依赖抖动就直接 500。
-            if (!properties.getHybrid().isEnabled()) {
+            if (!hybrid.isEnabled()) {
                 throw new KnowledgeException(e.getMessage());
             }
             embedError = e.getMessage();
@@ -265,7 +288,7 @@ public class KnowledgeService {
 
         // ---------- ③④ 双路召回 + RRF 融合 ----------
         t = System.currentTimeMillis();
-        List<Candidate> candidates = retriever.retrieve(variants, store, properties);
+        List<Candidate> candidates = retriever.retrieve(variants, store, hybrid);
         int recalled = candidates.size();
         timings.put("recallMs", System.currentTimeMillis() - t);
 
@@ -282,9 +305,9 @@ public class KnowledgeService {
         if (candidates.isEmpty()) {
             timings.put("llmMs", 0L);
             timings.put("totalMs", System.currentTimeMillis() - startAll);
-            return new Answer(null, List.of(), false, null, queryInfo,
-                    buildRetrievalInfo(0, 0, 0, RerankerRouter.Outcome.of(rerankerRouter.configuredMode()),
-                            embedError, timings));
+            return new Retrieval(queryInfo, buildRetrievalInfo(0, 0, 0,
+                    RerankerRouter.Outcome.of(rerankerRouter.configuredMode()), embedError, timings, hybrid),
+                    List.of(), false, List.of());
         }
 
         // ---------- ⑤ 精排 ----------
@@ -299,7 +322,7 @@ public class KnowledgeService {
                 : question;
 
         t = System.currentTimeMillis();
-        RerankerRouter.Outcome rerankOutcome = rerankerRouter.rerank(judgeQuery, toRerank);
+        RerankerRouter.Outcome rerankOutcome = rerankerRouter.rerank(judgeQuery, toRerank, rerankModeOverride);
         timings.put("rerankMs", System.currentTimeMillis() - t);
 
         // 精排生效时按精排分重排；off 模式保持融合序（这是它的定义）
@@ -325,27 +348,47 @@ public class KnowledgeService {
         if (selected.isEmpty()) {
             timings.put("llmMs", 0L);
             timings.put("totalMs", System.currentTimeMillis() - startAll);
-            return new Answer(null, List.of(), false, null, queryInfo,
-                    buildRetrievalInfo(recalled, toRerank.size(), 0, rerankOutcome, embedError, timings));
+            return new Retrieval(queryInfo, buildRetrievalInfo(recalled, toRerank.size(), 0,
+                    rerankOutcome, embedError, timings, hybrid), List.of(), false, List.of());
         }
 
         List<Hit> hits = toHits(selected);
-
-        // ---------- ⑦ 拼 Prompt 交给大模型 ----------
-        String prompt = buildPrompt(question, selected);
-        t = System.currentTimeMillis();
-        AiService.Result result = aiService.chat(prompt, 0.3);
-        timings.put("llmMs", System.currentTimeMillis() - t);
+        List<String> contexts = toContexts(selected);
         timings.put("totalMs", System.currentTimeMillis() - startAll);
 
-        RetrievalInfo retrieval = buildRetrievalInfo(recalled, toRerank.size(), hits.size(),
-                rerankOutcome, embedError, timings);
+        RetrievalInfo retrieval =
+                buildRetrievalInfo(recalled, toRerank.size(), hits.size(), rerankOutcome, embedError, timings, hybrid);
+        return new Retrieval(queryInfo, retrieval, hits, true, contexts);
+    }
+
+    /** 完整问答：检索 + 交给大模型作答 */
+    public Answer ask(String question,
+                      List<String> history,
+                      Integer topK,
+                      Double minScore,
+                      Double minVectorScore,
+                      Boolean useRewrite,
+                      Boolean useHyde) {
+        Retrieval retrieval = retrieve(question, history, topK, minScore, minVectorScore,
+                useRewrite, useHyde, null, null);
+
+        if (!retrieval.found()) {
+            return new Answer(null, retrieval.hits(), false, null, retrieval.query(), retrieval.info());
+        }
+
+        long t = System.currentTimeMillis();
+        AiService.Result result = aiService.chat(buildPrompt(question, retrieval.contexts()), 0.3);
+        retrieval.info().timingsMs().put("llmMs", System.currentTimeMillis() - t);
+        retrieval.info().timingsMs().put("totalMs",
+                retrieval.info().timingsMs().getOrDefault("totalMs", 0L) + (System.currentTimeMillis() - t));
 
         if (!result.isSuccess()) {
             // 检索是好的、只是生成失败：把片段一并返回，让调用方能看到"找对了但答不出来"
-            return new Answer(null, hits, true, "调用大模型失败：" + result.getError(), queryInfo, retrieval);
+            return new Answer(null, retrieval.hits(), true,
+                    "调用大模型失败：" + result.getError(), retrieval.query(), retrieval.info());
         }
-        return new Answer(result.getContent(), hits, true, null, queryInfo, retrieval);
+        return new Answer(result.getContent(), retrieval.hits(), true, null,
+                retrieval.query(), retrieval.info());
     }
 
     /** 把候选转成对外的命中片段（每一层分数都带上） */
@@ -410,16 +453,27 @@ public class KnowledgeService {
         return planned;
     }
 
-    /** 拼装最终 Prompt：片段带上来源与章节，并强制模型"无依据就拒答" */
-    private String buildPrompt(String question, List<Candidate> selected) {
-        StringBuilder context = new StringBuilder();
+    /** 把选中的候选格式化成带来源与章节的片段块，供拼 Prompt 使用 */
+    private List<String> toContexts(List<Candidate> selected) {
+        List<String> contexts = new ArrayList<>(selected.size());
         for (int i = 0; i < selected.size(); i++) {
             Chunk chunk = selected.get(i).chunk();
-            context.append("【片段").append(i + 1).append("｜来源：").append(chunk.source());
+            StringBuilder sb = new StringBuilder();
+            sb.append("【片段").append(i + 1).append("｜来源：").append(chunk.source());
             if (!chunk.sectionOrEmpty().isEmpty()) {
-                context.append("｜章节：").append(chunk.section());
+                sb.append("｜章节：").append(chunk.section());
             }
-            context.append("】\n").append(chunk.text()).append("\n\n");
+            sb.append("】\n").append(chunk.text());
+            contexts.add(sb.toString());
+        }
+        return contexts;
+    }
+
+    /** 拼装最终 Prompt：片段带上来源与章节，并强制模型"无依据就拒答" */
+    private String buildPrompt(String question, List<String> contexts) {
+        StringBuilder context = new StringBuilder();
+        for (String block : contexts) {
+            context.append(block).append("\n\n");
         }
 
         return "你是一个知识库问答助手。请严格依据下面的文档片段回答用户问题。\n"
@@ -432,8 +486,8 @@ public class KnowledgeService {
                 + "回答：";
     }
 
-    private String retrievalMode(boolean vectorDegraded) {
-        if (!properties.getHybrid().isEnabled()) {
+    private String retrievalMode(boolean vectorDegraded, KnowledgeProperties.Hybrid hybrid) {
+        if (!hybrid.isEnabled()) {
             return "vector";
         }
         return vectorDegraded ? "bm25" : "hybrid";
@@ -444,9 +498,10 @@ public class KnowledgeService {
                                              int returned,
                                              RerankerRouter.Outcome outcome,
                                              String embedError,
-                                             Map<String, Long> timings) {
+                                             Map<String, Long> timings,
+                                             KnowledgeProperties.Hybrid hybrid) {
         return new RetrievalInfo(
-                retrievalMode(embedError != null),
+                retrievalMode(embedError != null, hybrid),
                 recalled,
                 reranked,
                 returned,

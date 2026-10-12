@@ -178,7 +178,7 @@ class RetrievalPipelineTest {
         List<HybridRetriever.QueryVariant> variants = List.of(
                 new HybridRetriever.QueryVariant("原问题", "年假", new double[]{0.2, 0, 0.98, 0}, 1.0));
 
-        List<Candidate> candidates = retriever.retrieve(variants, store, properties);
+        List<Candidate> candidates = retriever.retrieve(variants, store, properties.getHybrid());
 
         assertTrue(candidates.stream().anyMatch(c -> c.routes().contains("vector")), "应有向量路候选");
         assertTrue(candidates.stream().anyMatch(c -> c.routes().contains("bm25")), "应有 BM25 路候选");
@@ -197,7 +197,7 @@ class RetrievalPipelineTest {
                 new HybridRetriever.QueryVariant("原问题", "年假有几天", new double[]{0.9, 0.1, 0, 0}, 1.0),
                 new HybridRetriever.QueryVariant("改写", "年假天数", new double[]{0.9, 0.1, 0, 0}, 0.9));
 
-        List<Candidate> candidates = retriever.retrieve(variants, store, properties);
+        List<Candidate> candidates = retriever.retrieve(variants, store, properties.getHybrid());
         assertEquals(1, candidates.get(0).chunk().ordinal(), "两条查询都指向年假，它应排第一");
         assertTrue(candidates.get(0).matchedQueries().size() >= 2, "应记录被多条查询命中");
     }
@@ -213,7 +213,7 @@ class RetrievalPipelineTest {
         List<HybridRetriever.QueryVariant> variants = List.of(
                 new HybridRetriever.QueryVariant("原问题", "年假", new double[]{0.9, 0.1, 0, 0}, 1.0));
 
-        List<Candidate> candidates = retriever.retrieve(variants, store, properties);
+        List<Candidate> candidates = retriever.retrieve(variants, store, properties.getHybrid());
         assertTrue(candidates.stream().allMatch(c -> c.routes().equals(java.util.Set.of("vector"))),
                 "关闭混合检索后不应出现 BM25 候选");
     }

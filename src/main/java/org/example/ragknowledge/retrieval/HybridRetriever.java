@@ -54,18 +54,20 @@ public class HybridRetriever {
     /**
      * 执行混合检索。
      *
+     * @param config 召回配置。显式传入而不是从 {@code KnowledgeProperties} 里现取，
+     *               是为了让评测能在同一批数据上跑多套配置做消融对比，
+     *               同时避免为了改配置去动全局状态（线程不安全）。
      * @return 按 RRF 分降序排列的候选（未截断，交由调用方决定送入精排的条数）
      */
     public List<Candidate> retrieve(List<QueryVariant> variants,
                                     KnowledgeStore store,
-                                    KnowledgeProperties properties) {
+                                    KnowledgeProperties.Hybrid config) {
         List<Candidate> candidates = new ArrayList<>();
         List<Chunk> chunks = store.all();
         if (chunks.isEmpty() || variants.isEmpty()) {
             return candidates;
         }
 
-        KnowledgeProperties.Hybrid config = properties.getHybrid();
         int recallTopK = Math.max(1, config.getRecallTopK());
         double k = Math.max(1, config.getRrfK());
         double vectorWeight = config.getVectorWeight();
@@ -102,7 +104,9 @@ public class HybridRetriever {
 
             // ---------- 第 2 路：BM25 关键词召回 ----------
             if (hybridEnabled && bm25 != null && !bm25.isEmpty()) {
-                List<Bm25Index.Scored> bm25Hits = bm25.search(variant.text(), recallTopK);
+                // BM25 单独用一个（通常更浅的）召回深度，见 KnowledgeProperties.Hybrid#bm25TopK
+                int bm25Depth = config.getBm25TopK() > 0 ? config.getBm25TopK() : recallTopK;
+                List<Bm25Index.Scored> bm25Hits = bm25.search(variant.text(), bm25Depth);
                 int rank = 0;
                 for (Bm25Index.Scored hit : bm25Hits) {
                     rank++;

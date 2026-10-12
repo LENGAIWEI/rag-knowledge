@@ -23,6 +23,36 @@ v1 只有"向量召回 + 拼 Prompt"，v2 往上加了标准的三层：
 
 ---
 
+## 一点五、评测：这套优化到底有没有用
+
+[`docs/评测与调参.md`](docs/评测与调参.md) 记录了用 40 条评测用例做的完整消融实验。
+**结论和最初的实现假设相反**，挑四条最重要的：
+
+| 发现 | 数据 |
+| --- | --- |
+| BM25 的召回深度必须压浅 | 10 条时 Hit@5=81%，压到 2 条后 **95%**（+14pt，一行改动） |
+| 手写的词面精排是**净负收益** | 词面权重越大越差：84% → 95% → 97%（纯余弦） |
+| 真正有用的是 **Query 改写** | Hit@1 +11pt、Hit@3 +17pt、MRR +0.101，代价 +1.4s |
+| **HyDE 会让拒答能力归零** | 拒答率 33% → **0%**，这是它默认关闭的实测依据 |
+
+两个根因：
+
+- RRF 的 `k=60` 让各名次分差只有 13%，BM25 尾部的噪声票足以翻转 top-10 的顺序 ——
+  所以问题不在 BM25 权重，而在**投票的条数**；
+- 这份语料只有 124 个块、`embedding-3` 又足够强，向量本身已经把答案排到前面了，
+  词面信号只是在往一个**已经正确的排序**里注入噪声。典型失败：问"哪个组件比 OpenFeign 更快"，
+  词面匹配会把 OpenFeign 那一节顶上来，而正确答案是 Dubbo。
+
+评测**不调用大模型生成答案**（只评检索），所以可以放心反复跑：
+
+```bash
+curl -X POST http://localhost:8081/kb/eval/run \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"quick","topK":10}'
+```
+
+---
+
 ## 二、目录结构
 
 ```
@@ -32,8 +62,10 @@ rag-knowledge/
 ├── test.http                       接口调试脚本（IDEA / VS Code REST Client）
 ├── README.md
 ├── docs/检索三层详解.md             三层检索的原理、公式、取舍（面试向）
+├── docs/评测与调参.md               消融实验：哪些优化真的有用（含完整数据和结论）
+├── data/eval/eval-set.json         评测集（40 条：LLM 自动生成 + 手工对抗用例）
 ├── tools/bge-reranker-service/     可选的 bge-reranker 本地推理服务（Python）
-├── data/knowledge-base.json        知识库落盘文件（兼容 v1 格式，可直接沿用）
+├── data/knowledge-base.json        知识库落盘文件（兼容 v1 格式，可直接沿用；不入版本库）
 └── src/main/
     ├── java/org/example/ragknowledge/
     │   ├── RagKnowledgeApplication.java

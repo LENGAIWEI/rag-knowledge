@@ -1,0 +1,324 @@
+{
+  "version" : 1,
+  "cases" : [ {
+    "id" : "auto-001",
+    "question" : "我写代码时不用自己 new 对象了，那这些对象到底是谁负责创建和拼装依赖的？",
+    "expectSource" : "Spring-核心知识库",
+    "expectSection" : "1. Spring 核心知识库 > 2. IOC（控制反转 Inversion of Control）",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对 IOC 容器接管对象创建与依赖管理这一核心思想的理解。"
+  }, {
+    "id" : "auto-002",
+    "question" : "同一个类被容器管理时，为什么有时候每次拿到的都是同一个东西，有时候又是全新的？",
+    "expectSource" : "Spring-核心知识库",
+    "expectSection" : "1. Spring 核心知识库 > 3. Bean 相关 > Bean 作用域",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对 singleton 与 prototype 等 Bean 作用域差异的掌握。"
+  }, {
+    "id" : "auto-003",
+    "question" : "我在一个方法里调用了本类的另一个带事务注解的方法，为什么事务没生效？",
+    "expectSource" : "Spring-核心知识库",
+    "expectSection" : "1. Spring 核心知识库 > 5. Spring 事务底层 > @Transactional",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 @Transactional 因同类内部调用导致代理失效的生效前提。"
+  }, {
+    "id" : "auto-004",
+    "question" : "用户访问一个网址后，服务器那边到底是怎么一步步把结果返回来的？",
+    "expectSource" : "SpringMVC-知识库",
+    "expectSection" : "2. SpringMVC 知识库 > 2. 完整请求执行流程",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对请求从进入到响应返回整体链路中各组件协作顺序的理解。"
+  }, {
+    "id" : "auto-005",
+    "question" : "前端传过来的数据放在不同位置，后端分别该怎么接？",
+    "expectSource" : "SpringMVC-知识库",
+    "expectSection" : "2. SpringMVC 知识库 > 3. 接收请求参数",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对不同参数来源（路径、查询串、请求体、请求头、Cookie、表单）对应接收方式的掌握。"
+  }, {
+    "id" : "auto-006",
+    "question" : "我想在每次调用接口前后统一做点事情，比如打日志或校验登录，应该用什么机制？",
+    "expectSource" : "SpringMVC-知识库",
+    "expectSection" : "2. SpringMVC 知识库 > 5. 拦截器 HandlerInterceptor",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察拦截器的用途、执行时机以及它与过滤器的区别。"
+  }, {
+    "id" : "auto-007",
+    "question" : "用户登录时，系统是在哪一步把账号信息查出来的？",
+    "expectSource" : "Spring-Security-安全框架知识库",
+    "expectSection" : "4. Spring Security 安全框架知识库 > 3. 登录流程",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察登录流程中加载用户数据的环节。"
+  }, {
+    "id" : "auto-008",
+    "question" : "如果我想在方法执行前判断当前用户有没有某个权限，可以用什么方式？",
+    "expectSource" : "Spring-Security-安全框架知识库",
+    "expectSection" : "4. Spring Security 安全框架知识库 > 4. 权限控制",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察基于权限字符串的方法级权限校验方式。"
+  }, {
+    "id" : "auto-009",
+    "question" : "前后端分离项目里，为什么每次请求都要带上 token，而不是靠服务器记住登录状态？",
+    "expectSource" : "Spring-Security-安全框架知识库",
+    "expectSection" : "4. Spring Security 安全框架知识库 > 5. JWT 整合 Security",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 JWT 无状态登录的基本思路。"
+  }, {
+    "id" : "auto-010",
+    "question" : "把一个大型应用拆成多个小服务后，每个服务是不是可以单独上线、单独用自己的数据库？",
+    "expectSource" : "Spring-Cloud-微服务知识库",
+    "expectSection" : "5. Spring Cloud 微服务知识库 > 1. 微服务概念",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察微服务拆分后的独立部署与独立数据库特征。"
+  }, {
+    "id" : "auto-011",
+    "question" : "服务提供者启动后，消费者是怎么知道它在哪里、又是怎么挑一台机器去请求的？",
+    "expectSource" : "Spring-Cloud-微服务知识库",
+    "expectSection" : "5. Spring Cloud 微服务知识库 > 3. 核心概念",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察服务注册、服务发现与客户端负载均衡的流程。"
+  }, {
+    "id" : "auto-012",
+    "question" : "如果某个下游服务一直报错，Sentinel 会怎么处理，能不能直接不再调它？",
+    "expectSource" : "Spring-Cloud-微服务知识库",
+    "expectSection" : "5. Spring Cloud 微服务知识库 > 6. 服务容错 Sentinel",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察熔断与降级在服务容错中的具体行为。"
+  }, {
+    "id" : "auto-013",
+    "question" : "微服务里服务之间互相调用，用哪个组件比 OpenFeign 更快？",
+    "expectSource" : "Spring-Cloud-Alibaba-知识库",
+    "expectSection" : "6. Spring Cloud Alibaba 知识库 > 4. Dubbo",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 Dubbo 与 Feign 在远程调用性能上的差异。"
+  }, {
+    "id" : "auto-014",
+    "question" : "怎么让不同环境（开发、测试、生产）的配置和服务互不干扰？",
+    "expectSource" : "Spring-Cloud-Alibaba-知识库",
+    "expectSection" : "6. Spring Cloud Alibaba 知识库 > 2. Nacos",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 Nacos 中命名空间和分组的环境与业务隔离能力。"
+  }, {
+    "id" : "auto-015",
+    "question" : "跨多个数据库的业务操作怎么保证要么全成功要么全失败？",
+    "expectSource" : "Spring-Cloud-Alibaba-知识库",
+    "expectSection" : "6. Spring Cloud Alibaba 知识库 > 5. Seata 分布式事务",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 Seata 解决分布式事务问题的定位与常用模式。"
+  }, {
+    "id" : "auto-016",
+    "question" : "MyBatis 和 JPA 用起来有什么不一样，为什么做复杂查询时更常选它？",
+    "expectSource" : "MyBatis-知识库",
+    "expectSection" : "7. MyBatis 知识库 > 1. MyBatis 概述",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对 MyBatis 半自动 ORM 定位及与全自动框架差异的理解。"
+  }, {
+    "id" : "auto-017",
+    "question" : "在 Mapper 接口里只写了方法声明，没有实现类，为什么还能调用到数据库？",
+    "expectSource" : "MyBatis-知识库",
+    "expectSection" : "7. MyBatis 知识库 > 2. 核心组件",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 Mapper 接口动态代理机制及核心组件职责。"
+  }, {
+    "id" : "auto-018",
+    "question" : "查询条件有时有有时没有，怎么避免手写一堆 1=1 和多余的 and？",
+    "expectSource" : "MyBatis-知识库",
+    "expectSection" : "7. MyBatis 知识库 > 4. 动态 SQL（高频）",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察动态 SQL 标签解决条件拼接问题的能力。"
+  }, {
+    "id" : "auto-019",
+    "question" : "这个框架会不会把我原来写的 MyBatis 配置改掉？",
+    "expectSource" : "MyBatis-Plus-知识库",
+    "expectSection" : "8. MyBatis-Plus 知识库 > 1. MP 概述",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 MP 与 MyBatis 的关系及增强定位。"
+  }, {
+    "id" : "auto-020",
+    "question" : "实体类里的创建时间和更新时间能不能在插入或更新时自动赋值？",
+    "expectSource" : "MyBatis-Plus-知识库",
+    "expectSection" : "8. MyBatis-Plus 知识库 > 6. 自动填充",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察自动填充的适用场景与实现方式。"
+  }, {
+    "id" : "auto-021",
+    "question" : "为什么我用了分页方法，返回的总条数却不对？",
+    "expectSource" : "MyBatis-Plus-知识库",
+    "expectSection" : "8. MyBatis-Plus 知识库 > 8. 常用坑",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察分页插件未注册导致的常见问题。"
+  }, {
+    "id" : "auto-022",
+    "question" : "如果我的查询条件里对字段用了函数，索引还能用上吗？",
+    "expectSource" : "MySQL-知识库",
+    "expectSection" : "9. MySQL 知识库 > 5. 索引（高频重点） > 索引失效常见场景",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对索引失效常见触发条件的理解。"
+  }, {
+    "id" : "auto-023",
+    "question" : "为什么 MySQL 默认的隔离级别就能避免幻读？",
+    "expectSource" : "MySQL-知识库",
+    "expectSection" : "9. MySQL 知识库 > 3. MVCC 多版本并发控制",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 MVCC 与间隙锁在可重复读级别下解决幻读的机制。"
+  }, {
+    "id" : "auto-024",
+    "question" : "数据库突然断电，重启后之前提交的数据为什么不会丢？",
+    "expectSource" : "MySQL-知识库",
+    "expectSection" : "9. MySQL 知识库 > 6. 日志文件",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 redo log 的崩溃恢复与持久性保障作用。"
+  }, {
+    "id" : "auto-025",
+    "question" : "Redis 为什么能这么快？它真的是完全单线程吗？",
+    "expectSource" : "Redis-知识库",
+    "expectSection" : "10. Redis 知识库 > 1. Redis 概述",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对 Redis 单线程模型与高性能原因的理解。"
+  }, {
+    "id" : "auto-026",
+    "question" : "我想做一个排行榜，应该用哪种数据结构？",
+    "expectSource" : "Redis-知识库",
+    "expectSection" : "10. Redis 知识库 > 2. 常用数据类型",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察对 ZSet 等数据类型适用场景的掌握。"
+  }, {
+    "id" : "auto-027",
+    "question" : "Redis 重启后数据还能恢复吗？两种保存方式各有什么优缺点？",
+    "expectSource" : "Redis-知识库",
+    "expectSection" : "10. Redis 知识库 > 3. 持久化机制",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 RDB 与 AOF 两种持久化机制的区别与取舍。"
+  }, {
+    "id" : "auto-028",
+    "question" : "为什么用了 SpringBoot 之后就不用自己一个个配依赖版本了？",
+    "expectSource" : "SpringBoot核心基础",
+    "expectSection" : "一、SpringBoot 核心基础 > 4. Starter 起步依赖",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察 Starter 起步依赖与父工程统一版本管理的作用。"
+  }, {
+    "id" : "auto-029",
+    "question" : "项目里想根据不同的部署环境切换数据库地址，该怎么弄？",
+    "expectSource" : "SpringBoot核心基础",
+    "expectSection" : "二、配置文件（application.yml/application.properties） > 2. 多环境配置",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察多环境配置文件的命名规则与激活方式。"
+  }, {
+    "id" : "auto-030",
+    "question" : "我写了个 @Transactional 方法，但出异常时数据没回滚，可能是什么原因？",
+    "expectSource" : "SpringBoot核心基础",
+    "expectSection" : "十、常见坑 & 问题库",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "考察事务注解失效的常见场景。"
+  }, {
+    "id" : "m-refuse-1",
+    "question" : "我们公司年假有几天？",
+    "expectSource" : null,
+    "expectSection" : null,
+    "expectText" : null,
+    "expectNoAnswer" : true,
+    "note" : "知识库是 Java 技术笔记，不含公司制度"
+  }, {
+    "id" : "m-refuse-2",
+    "question" : "怎么用 Python 的 pandas 做数据透视表？",
+    "expectSource" : null,
+    "expectSection" : null,
+    "expectText" : null,
+    "expectNoAnswer" : true,
+    "note" : "知识库全是 Java 后端"
+  }, {
+    "id" : "m-refuse-3",
+    "question" : "明天上海会下雨吗？",
+    "expectSource" : null,
+    "expectSection" : null,
+    "expectText" : null,
+    "expectNoAnswer" : true,
+    "note" : "完全无关"
+  }, {
+    "id" : "m-exact-1",
+    "question" : "@EnableAutoConfiguration 到底做了什么？",
+    "expectSource" : "SpringBoot核心基础",
+    "expectSection" : "自动装配",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "专有注解，精确匹配"
+  }, {
+    "id" : "m-exact-2",
+    "question" : "Seata 的 AT 模式怎么做到对业务无侵入？",
+    "expectSource" : "Spring-Cloud-Alibaba-知识库",
+    "expectSection" : "Seata",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "术语密集"
+  }, {
+    "id" : "m-exact-3",
+    "question" : "Nacos 既能当注册中心又能当配置中心吗？",
+    "expectSource" : "Spring-Cloud-Alibaba-知识库",
+    "expectSection" : "Nacos",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "专有名词"
+  }, {
+    "id" : "m-sem-1",
+    "question" : "两个请求同时改同一条数据，怎么保证不出错？",
+    "expectSource" : "MySQL-知识库",
+    "expectSection" : "MVCC",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "口语转述，原词一个都不出现"
+  }, {
+    "id" : "m-sem-2",
+    "question" : "我的方法加了注解但没起作用，是不是自己调自己导致的？",
+    "expectSource" : "Spring-核心知识库",
+    "expectSection" : "事务",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "典型踩坑的口语描述"
+  }, {
+    "id" : "m-sem-3",
+    "question" : "加了索引为什么查询还是慢？",
+    "expectSource" : "MySQL-知识库",
+    "expectSection" : "索引",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "短查询 + 口语化"
+  }, {
+    "id" : "m-sem-4",
+    "question" : "为什么改了配置不用重启服务就能生效？",
+    "expectSource" : "SpringBoot核心基础",
+    "expectSection" : "配置",
+    "expectText" : null,
+    "expectNoAnswer" : false,
+    "note" : "描述现象而非用术语"
+  } ]
+}

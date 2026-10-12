@@ -244,6 +244,7 @@ public class KnowledgeController {
         m.put("rrfK", hybrid.getRrfK());
         m.put("vectorWeight", hybrid.getVectorWeight());
         m.put("bm25Weight", hybrid.getBm25Weight());
+        m.put("bm25TopK", hybrid.getBm25TopK());
         // 第 2 层：精排
         m.put("topK", kbProperties.getTopK());
         m.put("rerankCandidates", rerank.getCandidates());
@@ -254,6 +255,13 @@ public class KnowledgeController {
         m.put("rerankModel", rerank.getModel());
         m.put("rerankTimeoutMs", rerank.getTimeoutMs());
         m.put("hasRerankKey", isConfigured(rerank.getApiKey()));
+        // 本地精排的特征权重（调这几个值能直接改变排序结果，要配合评测跑）
+        KnowledgeProperties.Rerank.Lexical lexical = rerank.getLexical();
+        m.put("lexicalWeightVector", lexical.getWeightVector());
+        m.put("lexicalWeightCoverage", lexical.getWeightCoverage());
+        m.put("lexicalWeightProximity", lexical.getWeightProximity());
+        m.put("lexicalWeightPhrase", lexical.getWeightPhrase());
+        m.put("lexicalWeightBm25", lexical.getWeightBm25());
         // 第 3 层：改写 / HyDE
         m.put("rewriteEnabled", rewrite.isEnabled());
         m.put("rewriteVariants", rewrite.getVariants());
@@ -325,6 +333,10 @@ public class KnowledgeController {
         if (bm25Weight != null) {
             hybrid.setBm25Weight(Math.max(0, Math.min(10, bm25Weight)));
         }
+        Integer bm25TopK = asInteger(body.get("bm25TopK"));
+        if (bm25TopK != null) {
+            hybrid.setBm25TopK(clamp(bm25TopK, 1, 200));
+        }
 
         // ---- 第 2 层：精排 ----
         Integer topK = asInteger(body.get("topK"));
@@ -360,6 +372,28 @@ public class KnowledgeController {
         }
         if (rerankApiKey != null && !rerankApiKey.isBlank() && !rerankApiKey.contains("••••")) {
             rerank.setApiKey(rerankApiKey.trim());
+        }
+        // 本地精排特征权重：允许设成 0（等于关掉某个特征），用于消融
+        KnowledgeProperties.Rerank.Lexical lexical = rerank.getLexical();
+        Double wVector = asDouble(body.get("lexicalWeightVector"));
+        Double wCoverage = asDouble(body.get("lexicalWeightCoverage"));
+        Double wProximity = asDouble(body.get("lexicalWeightProximity"));
+        Double wPhrase = asDouble(body.get("lexicalWeightPhrase"));
+        Double wBm25 = asDouble(body.get("lexicalWeightBm25"));
+        if (wVector != null) {
+            lexical.setWeightVector(clamp01(wVector));
+        }
+        if (wCoverage != null) {
+            lexical.setWeightCoverage(clamp01(wCoverage));
+        }
+        if (wProximity != null) {
+            lexical.setWeightProximity(clamp01(wProximity));
+        }
+        if (wPhrase != null) {
+            lexical.setWeightPhrase(clamp01(wPhrase));
+        }
+        if (wBm25 != null) {
+            lexical.setWeightBm25(clamp01(wBm25));
         }
         if (rerankTimeoutMs != null) {
             rerank.setTimeoutMs(clamp(rerankTimeoutMs, 500, 120_000));

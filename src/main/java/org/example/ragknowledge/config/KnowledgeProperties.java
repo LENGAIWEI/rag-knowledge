@@ -62,11 +62,32 @@ public class KnowledgeProperties {
         /** BM25 路在 RRF 融合中的权重 */
         private double bm25Weight = 1.0;
 
+        /**
+         * BM25 路单独召回多少条（与向量路的 {@code recallTopK} 分开）。
+         *
+         * <p>BM25 的特点是<b>头部准、尾部全是噪声</b>：前几条通常是真命中，
+         * 后面的都是碰巧共享一两个 bigram 的无关块。而 RRF 的分母 {@code k=60}
+         * 让各名次的分差极小（第 1 名 1/61 与第 10 名 1/70 只差 13%），
+         * 尾部那些噪声票足以翻转 top-10 的顺序。</p>
+         *
+         * <p>所以这一路需要一个比向量路更浅的召回深度。默认值与实测结论见
+         * {@code docs/评测与调参.md}。</p>
+         */
+        private int bm25TopK = 2;
+
         /** BM25 词频饱和参数 k1：越大越强调词频 */
         private double bm25K1 = 1.2;
 
         /** BM25 长度归一化参数 b：0 不归一化，1 完全归一化 */
         private double bm25B = 0.75;
+
+        public int getBm25TopK() {
+            return bm25TopK;
+        }
+
+        public void setBm25TopK(int bm25TopK) {
+            this.bm25TopK = bm25TopK;
+        }
 
         public double getBm25K1() {
             return bm25K1;
@@ -221,23 +242,43 @@ public class KnowledgeProperties {
             return lexical;
         }
 
-        /** 本地纯 Java 精排的特征权重 */
+        /**
+         * 本地纯 Java 精排的特征权重。
+         *
+         * <p><b>这几个默认值是实测扫出来的，不是拍的。</b>在 40 条评测用例上的结果（Hit@5）：</p>
+         * <pre>
+         *   向量/覆盖/邻近/短语/BM25
+         *   0.30/0.25/0.20/0.15/0.10  → 84%   （最初的"想当然"配比）
+         *   0.60/0.20/0.10/0.05/0.05  → 84%
+         *   1.00/0.15/0.08/0.04/0.03  → 95%   ← 现在的默认
+         *   1.00/0.00/0.00/0.00/0.00  → 97%   （纯余弦，等价于不精排）
+         * </pre>
+         *
+         * <p>结论是反直觉的：<b>词面特征加得越多，排序越差</b>。原因是这个语料只有
+         * 124 个块、embedding-3 又足够强，向量本身已经把答案排到前面了，
+         * 任何词面信号都是在往一个已经正确的排序里注入噪声 ——
+         * 最典型的失败是"问题里提到 A、答案却是 B"（例如问"哪个组件比 OpenFeign 更快"，
+         * 词面匹配会把 OpenFeign 那一节顶上来，而正确答案是 Dubbo）。</p>
+         *
+         * <p>所以这里的原则是：<b>把向量当主信号，词面特征只当轻微的并列打破器</b>。
+         * 语料变大、embedding 变弱时，这个配比应当重新扫一遍（见 docs/评测与调参.md）。</p>
+         */
         public static class Lexical {
 
-            /** 原始向量余弦相似度 */
-            private double weightVector = 0.30;
+            /** 原始向量余弦相似度：主信号 */
+            private double weightVector = 1.00;
 
             /** IDF 加权的词项覆盖率 */
-            private double weightCoverage = 0.25;
+            private double weightCoverage = 0.15;
 
             /** 查询词在文中的邻近密度 */
-            private double weightProximity = 0.20;
+            private double weightProximity = 0.08;
 
             /** 最长公共子串（短语命中） */
-            private double weightPhrase = 0.15;
+            private double weightPhrase = 0.04;
 
             /** 归一化后的 BM25 分 */
-            private double weightBm25 = 0.10;
+            private double weightBm25 = 0.03;
 
             public double getWeightVector() {
                 return weightVector;

@@ -80,7 +80,19 @@ public class RerankerRouter {
      * @param candidates 候选（已按融合分降序，调用方已截断到精排规模）
      */
     public Outcome rerank(String query, List<Candidate> candidates) {
-        String mode = configuredMode();
+        return rerank(query, candidates, null);
+    }
+
+    /**
+     * 带模式覆盖的重载：评测跑消融对比时用，避免为了改模式去动全局配置。
+     *
+     * @param modeOverride 覆盖本次使用的模式；null 表示按配置决定
+     */
+    public Outcome rerank(String query, List<Candidate> candidates, String modeOverride) {
+        String mode = (modeOverride == null || modeOverride.isBlank()) ? configuredMode() : modeOverride.trim();
+        if ("auto".equals(mode)) {
+            mode = httpReranker.isConfigured() ? "http" : "local";
+        }
         if (candidates == null || candidates.isEmpty()) {
             return Outcome.of(mode);
         }

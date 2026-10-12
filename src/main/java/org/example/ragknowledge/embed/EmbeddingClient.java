@@ -53,6 +53,30 @@ public class EmbeddingClient {
         }
     }
 
+    /**
+     * 查询向量缓存（LRU，按 模型名 + 文本 做键）。
+     *
+     * <p>两个场景很吃这个缓存：</p>
+     * <ul>
+     *   <li>评测跑消融对比时，同一批问题要用 6 套配置各跑一遍，
+     *       没有缓存就是 6 倍的向量化开销；</li>
+     *   <li>真实使用里用户反复问同一句话、或多次点击提问按钮。</li>
+     * </ul>
+     *
+     * <p>键里带上模型名，换模型后旧向量不会被误用。容量固定，不会无限增长。
+     * 只缓存<b>查询</b>（几十个字），不缓存入库文档块——那是一次性的，
+     * 而且会挤掉真正需要复用的条目。</p>
+     */
+    private static final int CACHE_MAX = 512;
+
+    private final Map<String, double[]> queryCache = Collections.synchronizedMap(
+            new LinkedHashMap<>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, double[]> eldest) {
+                    return size() > CACHE_MAX;
+                }
+            });
+
     /** 单条向量化 */
     public double[] embedOne(String text) {
         List<double[]> vectors = embedBatch(List.of(text));
@@ -60,6 +84,68 @@ public class EmbeddingClient {
             throw new EmbeddingException("向量化失败：接口未返回结果");
         }
         return vectors.get(0);
+    }
+
+    /** 带缓存的单条查询向量化：评测与检索路径都走这里 */
+    public double[] embedQuery(String text) {
+        if (text == null) {
+            throw new EmbeddingException("待向量化文本为空");
+        }
+        String key = aiProperties.getEmbeddingModel() + "\u0000" + text;
+        double[] cached = queryCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        double[] vector = embedOne(text);
+        queryCache.put(key, vector);
+        return vector;
+    }
+
+    /** 清空查询向量缓存（换 Embedding 模型后调用） */
+    public void clearQueryCache() {
+        queryCache.clear();
+    }
+
+    /** 当前缓存条目数，供状态接口展示 */
+    public int queryCacheSize() {
+        return queryCache.size();
+    }
+
+    /**
+     * 批量查询向量化（带缓存）：命中缓存的直接取，只把未命中的合并成一次请求。
+     *
+     * <p>这是检索路径应该用的方法 —— 它同时保住了"一次 HTTP 往返"和"不重复算同一个问题"
+     * 这两个优化。</p>
+     *
+     * @return 与 texts 等长的列表；失败位置为 null（由调用方决定怎么降级）
+     */
+    public List<double[]> embedQueries(List<String> texts) {
+        double[][] result = new double[texts.size()][];
+        List<Integer> misses = new ArrayList<>();
+        List<String> missTexts = new ArrayList<>();
+        String model = aiProperties.getEmbeddingModel();
+
+        for (int i = 0; i < texts.size(); i++) {
+            double[] cached = queryCache.get(model + "\u0000" + texts.get(i));
+            if (cached != null) {
+                result[i] = cached;
+            } else {
+                misses.add(i);
+                missTexts.add(texts.get(i));
+            }
+        }
+
+        if (!missTexts.isEmpty()) {
+            List<double[]> fetched = embedBatch(missTexts);
+            for (int k = 0; k < misses.size() && k < fetched.size(); k++) {
+                double[] vector = fetched.get(k);
+                result[misses.get(k)] = vector;
+                if (vector != null) {
+                    queryCache.put(model + "\u0000" + missTexts.get(k), vector);
+                }
+            }
+        }
+        return Arrays.asList(result);
     }
 
     /**
