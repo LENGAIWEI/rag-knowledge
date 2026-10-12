@@ -156,12 +156,13 @@ RAG 链路上串了三个外部依赖（对话模型、Embedding、精排模型�
 server.port=8081
 
 # 对话模型（改写 + 作答）
-ai.api-key=${DEEPSEEK_API_KEY:}
+# 密钥不写在这里：支持环境变量或本地文件，见下方「密钥怎么配」
+ai.api-key=${AI_API_KEY:}
 ai.api-url=https://api.deepseek.com/v1/chat/completions
 ai.model=deepseek-chat
 
 # 向量化（与对话模型是两套独立接口和 Key）
-ai.embedding-api-key=${EMBEDDING_API_KEY:}
+ai.embedding-api-key=${AI_EMBEDDING_API_KEY:}
 ai.embedding-api-url=https://open.bigmodel.cn/api/paas/v4/embeddings
 ai.embedding-model=embedding-3
 
@@ -197,7 +198,19 @@ kb.hyde.max-chars=400
 
 要点：
 
-- 密钥支持环境变量覆盖（`DEEPSEEK_API_KEY` / `EMBEDDING_API_KEY`），生产环境不要写死在文件里；
+- **密钥怎么配**（`application.properties` 会提交到仓库，所以里面绝不能有真实 Key）。
+  三种方式任选其一，优先级从高到低：
+
+  | 方式 | 怎么做 | 适用 |
+  | --- | --- | --- |
+  | 环境变量 | `AI_API_KEY=sk-xxx`、`AI_EMBEDDING_API_KEY=xxx` | 部署到服务器 |
+  | 本地文件 | 复制 `application-local.properties.example` 为 `application-local.properties` 并填入 Key，该文件已被 `.gitignore` | 本地开发 |
+  | 页面设置 | 右上角「设置」里直接填 | 临时试一下（重启失效） |
+
+  Spring Boot 的松绑定会把 `AI_API_KEY` 自动映射到 `ai.api-key`，不需要额外代码。
+
+- `data/` 下的知识库落盘文件**不纳入版本控制**：它是运行时状态，每次上传都会整体重写，
+  而且可以由源文档重新入库得到。想让 clone 下来就能演示，把源 Markdown 放进 `data/source/` 即可；
 - `kb.store-path` 是**相对应用启动目录**的路径，务必在 jar 所在目录启动，否则读不到 `data/`；
 - **更换 Embedding 模型后向量维度会变**，旧向量会被自动跳过并在日志里告警，需要清空知识库后重新入库；
 - `data/knowledge-base.json` 兼容 v1 格式（v1 没有 `section` 字段，载入后按空章节处理），
