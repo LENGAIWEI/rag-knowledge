@@ -25,7 +25,18 @@ import java.util.regex.Pattern;
 public final class TextSplitter {
 
     /** Markdown ATX 标题：# ~ ###### */
-    private static final Pattern MD_HEADING = Pattern.compile("^\\s{0,3}(#{1,6})\\s+(.+?)\\s*#*\\s*$");
+    /**
+     * Markdown ATX 标题。
+     *
+     * <p>严格按 CommonMark，{@code #} 后面必须有空格；但 LLM 生成的笔记经常写成
+     * {@code ##1. 微服务概念}（没空格）。这里额外兼容"紧跟着数字或汉字"的写法，
+     * 同时避开两类误判：{@code #TODO}（英文开头）和代码块里的 {@code # 注释}
+     * （由调用方按围栏状态排除）。</p>
+     *
+     * <p>group(1)=井号串，group(2)=带空格形式的标题，group(3)=无空格形式的标题。</p>
+     */
+    private static final Pattern MD_HEADING = Pattern.compile(
+            "^\\s{0,3}(#{1,6})(?:\\s+(.+?)|(?=[0-9\\u4e00-\\u9fff])(.+?))\\s*#*\\s*$");
 
     /** 中文章节标题：第X章 / 第X节 / 第X篇 / 第X部分，可带标题文字 */
     private static final Pattern CN_HEADING =
@@ -233,7 +244,12 @@ public final class TextSplitter {
         }
         Matcher md = MD_HEADING.matcher(line);
         if (md.matches()) {
-            return new Heading(md.group(1).length(), md.group(2).strip());
+            // group(2) 是「# 标题」形式，group(3) 是「##1. 标题」形式，两者取其一
+            String title = md.group(2) != null ? md.group(2) : md.group(3);
+            if (title != null && !title.isBlank()) {
+                return new Heading(md.group(1).length(), title.strip());
+            }
+            return null;
         }
         // 中文式标题只在短行上生效，避免把「第三节讲的是……」这种正文误判成标题
         if (line.strip().length() > 40) {

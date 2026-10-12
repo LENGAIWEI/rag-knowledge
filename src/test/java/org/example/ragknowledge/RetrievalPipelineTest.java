@@ -139,6 +139,32 @@ class RetrievalPipelineTest {
         assertEquals(0.0, index.idfOf("不存在的词"), "语料中没有的词 IDF 应为 0");
     }
 
+    @Test
+    @DisplayName("兼容 # 后没有空格的标题（LLM 生成的笔记常见写法）")
+    void splitterAcceptsHeadingsWithoutSpaceAfterHash() {
+        // CommonMark 要求 # 后有空格，但豆包/DeepSeek 生成的笔记经常写成 ##1. xxx。
+        // 不兼容的话这些标题会被当成正文，章节路径直接丢失。
+        String markdown = """
+                #7. MyBatis 知识库
+
+                ## 1. MyBatis 概述
+
+                MyBatis 是半自动 ORM 框架。
+
+                ##2. 核心配置
+
+                configuration 与 mapper 两大部分。
+                """;
+        List<TextSplitter.Segment> segments = TextSplitter.split(markdown, 300, 60);
+        for (TextSplitter.Segment segment : segments) {
+            System.out.println("[NoSpace] section=" + segment.section());
+        }
+        assertEquals(2, segments.size(), "应产出 2 个块，实际 " + describe(segments));
+        assertEquals("7. MyBatis 知识库 > 1. MyBatis 概述", segments.get(0).section());
+        assertEquals("7. MyBatis 知识库 > 2. 核心配置", segments.get(1).section(),
+                "`##2.` 这种没空格的标题也要能识别");
+    }
+
     // ==================== 混合检索 / RRF ====================
 
     @Test
