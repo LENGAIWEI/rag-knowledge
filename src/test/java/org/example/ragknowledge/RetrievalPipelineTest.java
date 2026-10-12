@@ -271,6 +271,39 @@ class RetrievalPipelineTest {
                 "降级后仍应打出精排分，候选不能被丢下");
     }
 
+    @Test
+    @DisplayName("代码块里的 # 注释不能被当成标题")
+    void splitterIgnoresHeadingsInsideCodeFences() {
+        // 这段结构取自真实的 SpringBoot 笔记：YAML/shell 注释以 # 开头，
+        // 而 "# xxx" 属于一级标题，一旦被误判会把整个标题栈清空，
+        // 导致其后所有章节路径全部错乱。
+        String markdown = """
+                ## 二、配置文件
+
+                ```yaml
+                spring:
+                  profiles:
+                # 在application.yml中指定
+                    active: dev
+                ```
+
+                ### 2. 多环境配置
+
+                通过 spring.profiles.active 切换环境。
+                """;
+        List<TextSplitter.Segment> segments = TextSplitter.split(markdown, 300, 60);
+
+        for (TextSplitter.Segment segment : segments) {
+            System.out.println("[Fence] section=" + segment.section());
+            assertFalse(segment.section() != null && segment.section().startsWith("# "),
+                    "代码块里的注释被误判成一级标题：" + segment.section());
+        }
+        assertEquals(2, segments.size(), "应产出 2 个块，实际 " + describe(segments));
+        assertEquals("二、配置文件", segments.get(0).section());
+        assertEquals("二、配置文件 > 2. 多环境配置", segments.get(1).section(),
+                "代码块之后的章节路径不应被清空");
+    }
+
     // ==================== 工具 ====================
 
     private List<Candidate> candidatesWithVector(KnowledgeStore store, double vectorScore) {

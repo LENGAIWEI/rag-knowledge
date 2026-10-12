@@ -31,6 +31,9 @@ public final class TextSplitter {
     private static final Pattern CN_HEADING =
             Pattern.compile("^\\s*(第[一二三四五六七八九十百零〇\\d]+\\s*[章篇节部])(?:\\s*[、.．:：]?\\s*(\\S.*)?)?$");
 
+    /** 代码围栏：``` 或 ~~~ 开头 */
+    private static final Pattern FENCE = Pattern.compile("^\\s*(?:```|~~~)");
+
     private TextSplitter() {
     }
 
@@ -68,9 +71,18 @@ public final class TextSplitter {
         StringBuilder body = new StringBuilder();
         String currentSection = null;
         boolean sawHeading = false;
+        boolean inFence = false;
 
         for (String line : lines) {
-            Heading heading = parseHeading(line);
+            // 代码块必须整体跳过标题判定，否则 YAML 的 "# 注释"、shell 的 "# 说明"
+            // 会被当成 Markdown 标题。尤其是一行 "# xxx" 属于一级标题，会把整个标题栈清空，
+            // 导致后面所有章节路径全错 —— 这是用真实笔记跑出来的问题。
+            if (isFence(line)) {
+                inFence = !inFence;
+                body.append(line).append('\n');
+                continue;
+            }
+            Heading heading = inFence ? null : parseHeading(line);
             if (heading != null) {
                 sawHeading = true;
                 // 章节切换前，先把上一节的内容切块落盘
@@ -113,17 +125,30 @@ public final class TextSplitter {
         }
     }
 
-    /** 判断一节里是否存在标题行之外的正文 */
+    /** 判断一节里是否存在标题行之外的正文（代码块内的内容算正文） */
     private static boolean hasRealContent(String content) {
+        boolean inFence = false;
         for (String line : content.split("\n")) {
+            if (isFence(line)) {
+                inFence = !inFence;
+                continue;
+            }
             if (line.isBlank()) {
                 continue;
+            }
+            if (inFence) {
+                return true;
             }
             if (parseHeading(line) == null) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** 是否为代码围栏行（``` 或 ~~~） */
+    private static boolean isFence(String line) {
+        return line != null && FENCE.matcher(line).find();
     }
 
     /**
