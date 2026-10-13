@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>检索评测 · RAG 知识库</title>
+<style>
+    :root {
+        --bg: #f5f6f9; --panel: #fff; --border: #e5e7eb; --border-strong: #d6dae1;
+        --text: #14161c; --muted: #6b7280; --faint: #9aa1ad;
+        --accent: #4f46e5; --accent-2: #7c3aed; --accent-soft: #eef2ff;
+        --ok: #059669; --ok-soft: #ecfdf5;
+        --warn: #d97706; --warn-soft: #fffbeb;
+        --danger: #dc2626; --danger-soft: #fef2f2;
+        --radius: 14px;
+        --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .topbar {
+        position: sticky; top: 0; z-index: 50;
+        background: rgba(255,255,255,.86); backdrop-filter: saturate(180%) blur(12px);
+        border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner { max-width: 1520px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark {
+        width: 34px; height: 34px; border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid; place-items: center; color: #fff; font-size: 17px;
+        box-shadow: 0 6px 16px -6px rgba(79,70,229,.7);
+    }
+    .brand-text h1 { margin: 0; font-size: 15px; font-weight: 650; }
+    .brand-text p { margin: 0; font-size: 11.5px; color: var(--faint); }
+    .topbar .right { margin-left: auto; display: flex; gap: 9px; align-items: center; }
+
+    .layout {
+        max-width: 1520px; margin: 0 auto; padding: 20px 24px 48px;
+        display: grid; grid-template-columns: 350px minmax(0,1fr); gap: 20px; align-items: start;
+    }
+    @media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } }
+
+    .card {
+        background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow); margin-bottom: 18px; overflow: hidden;
+    }
+    .card-head {
+        display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+        border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#fcfcfd,#fafbfc);
+    }
+    .card-head h2 { margin: 0; font-size: 13.5px; font-weight: 650; }
+    .card-head .sub { font-size: 11.5px; color: var(--faint); font-weight: 400; }
+    .card-head .right { margin-left: auto; display: flex; gap: 8px; }
+    .card-body { padding: 16px 18px; }
+
+    .btn {
+        border: 1px solid var(--border-strong); background: #fff; color: var(--text);
+        padding: 7px 14px; border-radius: 9px; font-size: 13px; font-family: inherit;
+        font-weight: 500; cursor: pointer; transition: .15s; display: inline-flex;
+        align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { background: #f9fafb; border-color: #c3c8d1; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        border-color: transparent; color: #fff; box-shadow: 0 6px 16px -8px rgba(79,70,229,.9);
+    }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.07); background: linear-gradient(135deg,var(--accent),var(--accent-2)); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+    .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
+    .btn-ghost:hover:not(:disabled) { background: #f3f4f6; }
+
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    input[type=number], select {
+        width: 100%; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: 9px;
+        font-size: 13px; font-family: inherit; color: var(--text); background: #fff;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+    .hint { font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+    .field { margin-bottom: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .switch { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; user-select: none; font-size: 12.5px; padding: 5px 0; }
+    .switch input { margin-top: 3px; flex: none; accent-color: var(--accent); }
+    .switch .desc { color: var(--faint); font-size: 11px; display: block; }
+
+    /* 指标表 */
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+        font-size: 11px; color: var(--faint); font-weight: 600; text-transform: uppercase;
+        letter-spacing: .04em; background: #fafbfc; position: sticky; top: 0;
+    }
+    tbody tr:hover { background: #fafbfc; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .best { color: var(--ok); font-weight: 700; }
+    .best::after { content: ' ▲'; font-size: 9px; opacity: .7; }
+    .baseline-row { background: #fcfcfd; }
+    .profile-name { font-weight: 600; }
+    .profile-desc { display: block; font-size: 10.5px; color: var(--faint); font-weight: 400; }
+
+    /* 逐条明细 */
+    .rank {
+        display: inline-block; min-width: 26px; padding: 1px 5px; border-radius: 5px;
+        font-variant-numeric: tabular-nums; font-weight: 600; font-size: 11.5px;
+    }
+    .rank.hit { background: var(--ok-soft); color: #047857; }
+    .rank.ok { background: #f0fdf4; color: #4d7c0f; }
+    .rank.mid { background: var(--warn-soft); color: #b45309; }
+    .rank.miss { background: var(--danger-soft); color: #b91c1c; }
+    .rank.na { background: #f3f4f6; color: var(--faint); }
+    .case-q { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 13px; border-radius: 10px; font-size: 12.5px; margin-bottom: 12px; }
+    .notice.info { background: #f0f9ff; border: 1px solid #bae6fd; color: #075985; }
+    .notice.warn { background: var(--warn-soft); border: 1px solid #fde68a; color: #92400e; }
+    .notice.err { background: var(--danger-soft); border: 1px solid #fecaca; color: #991b1b; }
+    .notice.ok { background: var(--ok-soft); border: 1px solid #a7f3d0; color: #047857; }
+
+    .loading { display: none; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; padding: 14px 0; }
+    .spinner {
+        width: 15px; height: 15px; border-radius: 50%; border: 2px solid #dfe3ea;
+        border-top-color: var(--accent); animation: spin .7s linear infinite; flex: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-8px);
+        background: #14161c; color: #fff; padding: 10px 20px; border-radius: 10px;
+        font-size: 13px; z-index: 300; opacity: 0; pointer-events: none; transition: .2s;
+        max-width: 76vw; text-align: center; box-shadow: 0 12px 32px -10px rgba(0,0,0,.5);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .empty { color: var(--faint); font-size: 12.5px; text-align: center; padding: 20px 0; }
+    code { background: #eef0f6; padding: 1.5px 5px; border-radius: 5px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-mark">◎</div>
+            <div class="brand-text">
+                <h1>检索评测</h1>
+                <p>消融对比 · 用数据代替感觉</p>
+            </div>
+        </div>
+        <div class="right">
+            <a class="btn btn-sm" href="/">← 回到知识库</a>
+        </div>
+    </div>
+</header>
+
+<main class="layout">
+    <!-- ============ 左栏 ============ -->
+    <aside>
+        <div class="card">
+            <div class="card-head"><h2>评测集</h2>
+                <div class="right"><button class="btn btn-ghost btn-sm" onclick="loadSet()">刷新</button></div>
+            </div>
+            <div class="card-body">
+                <div id="setInfo" class="hint">加载中…</div>
+                <div class="field" style="margin-top:12px;">
+                    <label>生成用例：每份文档几条</label>
+                    <input type="number" id="genPerDoc" value="3" min="1" max="8">
+                </div>
+                <label class="switch"><input type="checkbox" id="genReplace">
+                    <span>覆盖现有评测集<span class="desc">不勾选 = 追加（可能产生重复用例）</span></span>
+                </label>
+                <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:8px;"
+                        onclick="generate()" id="genBtn">让大模型生成用例</button>
+                <div class="hint" style="margin-top:10px;">
+                    生成会调用大模型（每份文档一次），约 10~30 秒。
+                    手工用例不会被覆盖，除非勾了「覆盖」。
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h2>运行配置</h2></div>
+            <div class="card-body">
+                <div class="grid2">
+                    <div class="field" style="margin:0;">
+                        <label>模式</label>
+                        <select id="mode">
+                            <option value="quick">quick（2 档，十几秒）</option>
+                            <option value="standard" selected>standard（6 档，约 4 分钟）</option>
+                        </select>
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label>每条召回 topK</label>
+                        <input type="number" id="topK" value="10" min="1" max="50">
+                    </div>
+                </div>
+
+                <div class="field" style="margin:14px 0 0;">
+                    <label>阈值覆盖（留空 = 用服务端默认）</label>
+                    <div class="grid2">
+                        <input type="number" id="minScore" step="0.05" placeholder="最终分阈值">
+                        <input type="number" id="minVectorScore" step="0.05" placeholder="向量召回阈值">
+                    </div>
+                </div>
+
+                <div class="field" style="margin:14px 0 0;">
+                    <label>只跑指定档位（不选 = 按模式跑全集）</label>
+                    <div id="profilePicker"></div>
+                </div>
+
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px;"
+                        onclick="runEval()" id="runBtn">开始评测</button>
+                <div class="loading" id="loading"><span class="spinner"></span><span id="loadingText">评测中…</span></div>
+                <div class="hint" style="margin-top:10px;">
+                    评测只走检索链路、<b>不调用大模型生成答案</b>，所以可以放心反复跑。
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ 右栏 ============ -->
+    <section>
+        <div class="card">
+            <div class="card-head">
+                <h2>指标对比</h2>
+                <span class="sub" id="runSummary"></span>
+            </div>
+            <div class="card-body" id="reportBox">
+                <div class="empty">还没有跑过评测。点左边的「开始评测」。</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <h2>逐条明细</h2>
+                <span class="sub">数字是「期望片段在各档位下的排名」，<code>×</code> 表示没进 topK</span>
+                <div class="right">
+                    <button class="btn btn-ghost btn-sm" onclick="toggleOnlyRegressions()" id="regBtn">只看退化</button>
+                </div>
+            </div>
+            <div class="card-body" style="padding:0;overflow-x:auto;">
+                <div id="detailBox" class="empty">—</div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+let profiles = [];
+let lastResult = null;
+let onlyRegressions = false;
+
+loadProfiles();
+loadSet();
+
+// ==================== 工具 ====================
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function pct(v) { return (v * 100).toFixed(0) + '%'; }
+function num(v, digits) { return Number(v).toFixed(digits == null ? 3 : digits); }
+function val(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
+function numOrNull(id) { const v = val(id); if (!v) return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+
+// ==================== 评测集 ====================
+async function loadSet() {
+    try {
+        const data = await (await fetch('/kb/eval/set')).json();
+        const bySource = {};
+        (data.cases || []).forEach(c => {
+            const key = c.expectNoAnswer ? '（应拒答）' : (c.expectSource || '未标注');
+            bySource[key] = (bySource[key] || 0) + 1;
+        });
+        const rows = Object.keys(bySource).sort().map(k =>
+            '<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;">' +
+            '<span>' + esc(k) + '</span><b>' + bySource[k] + '</b></div>').join('');
+        document.getElementById('setInfo').innerHTML =
+            '<div style="font-size:20px;font-weight:700;color:var(--accent);">' + (data.count || 0) + ' <span style="font-size:12px;color:var(--muted);font-weight:400;">条用例</span></div>' +
+            '<div class="hint" style="margin:6px 0 10px;word-break:break-all;">' + esc(data.path || '') + '</div>' + rows;
+    } catch (e) {
+        document.getElementById('setInfo').textContent = '读取失败：' + e.message;
+    }
+}
+
+async function generate() {
+    const btn = document.getElementById('genBtn');
+    btn.disabled = true; btn.textContent = '生成中…';
+    try {
+        const res = await fetch('/kb/eval/generate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                perDocument: Number(val('genPerDoc')) || 3,
+                replace: document.getElementById('genReplace').checked
+            })
+        });
+        const data = await res.json();
+        toast(data.message || (data.success ? '完成' : '失败'));
+        if (data.errors && data.errors.length) {
+            console.warn('生成错误', data.errors);
+        }
+        loadSet();
+    } catch (e) {
+        toast('生成失败：' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = '让大模型生成用例';
+    }
+}
+
+// ==================== 档位 ====================
+async function loadProfiles() {
+    try {
+        const data = await (await fetch('/kb/eval/profiles')).json();
+        profiles = data.standard || [];
+        document.getElementById('profilePicker').innerHTML = profiles.map(p =>
+            '<label class="switch" title="' + esc(p.description) + '">' +
+            '<input type="checkbox" class="prof" value="' + esc(p.name) + '">' +
+            '<span>' + esc(p.name) + '<span class="desc">' + esc(p.description) + '</span></span></label>'
+        ).join('');
+    } catch (e) {
+        document.getElementById('profilePicker').textContent = '档位加载失败';
+    }
+}
+
+// ==================== 跑评测 ====================
+async function runEval() {
+    const btn = document.getElementById('runBtn');
+    const loading = document.getElementById('loading');
+    const picked = Array.from(document.querySelectorAll('.prof:checked')).map(e => e.value);
+
+    const body = { topK: Number(val('topK')) || 10 };
+    if (picked.length) { body.profiles = picked; } else { body.mode = val('mode'); }
+    const ms = numOrNull('minScore'); if (ms !== null) body.minScore = ms;
+    const mvs = numOrNull('minVectorScore'); if (mvs !== null) body.minVectorScore = mvs;
+
+    btn.disabled = true; loading.style.display = 'flex';
+    const steps = ['正在预热查询向量…', '逐档位跑评测…', '汇总指标…'];
+    let i = 0;
+    const ticker = setInterval(() => {
+        i = (i + 1) % steps.length;
+        document.getElementById('loadingText').textContent = steps[i];
+    }, 1500);
+
+    try {
+        const data = await (await fetch('/kb/eval/run', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })).json();
+        if (!data.success) { toast(data.message || '评测失败'); return; }
+        lastResult = data;
+        renderReport(data);
+        toast('评测完成：' + data.message);
+    } catch (e) {
+        toast('评测失败：' + e.message);
+    } finally {
+        clearInterval(ticker);
+        btn.disabled = false; loading.style.display = 'none';
+    }
+}
+
+// ==================== 渲染：指标表 ====================
+function renderReport(data) {
+    const reps = data.reports || [];
+    document.getElementById('runSummary').textContent =
+        reps.length + ' 个档位 · ' + data.caseCount + ' 条用例 · topK=' + data.topK +
+        ' · 耗时 ' + Math.round(data.elapsedMs / 1000) + 's';
+
+    const metrics = [
+        { key: 'hit1', label: 'Hit@1', fmt: pct, higher: true },
+        { key: 'hit3', label: 'Hit@3', fmt: pct, higher: true },
+        { key: 'hit5', label: 'Hit@5', fmt: pct, higher: true },
+        { key: 'hit10', label: 'Hit@10', fmt: pct, higher: true },
+        { key: 'mrr', label: 'MRR', fmt: v => num(v, 3), higher: true },
+        { key: 'refusalAccuracy', label: '拒答率', fmt: pct, higher: true, warnIfDropped: true },
+        { key: 'avgLatencyMs', label: '检索耗时', fmt: v => Math.round(v) + 'ms', higher: false }
+    ];
+
+    // 每列最优值（耗时取最小，其余取最大）
+    const best = {};
+    metrics.forEach(m => {
+        const vals = reps.map(r => Number(r[m.key])).filter(v => Number.isFinite(v));
+        if (!vals.length) return;
+        best[m.key] = m.higher ? Math.max.apply(null, vals) : Math.min.apply(null, vals);
+    });
+
+    let html = '<div style="overflow-x:auto;"><table><thead><tr><th>档位</th>';
+    metrics.forEach(m => { html += '<th>' + m.label + '</th>'; });
+    html += '</tr></thead><tbody>';
+
+    reps.forEach((r, idx) => {
+        const isBaseline = idx === 0;
+        html += '<tr class="' + (isBaseline ? 'baseline-row' : '') + '">';
+        html += '<td><span class="profile-name">' + esc(r.profile) + '</span>' +
+                '<span class="profile-desc">' + esc(r.description || '') + '</span></td>';
+        metrics.forEach(m => {
+            const v = Number(r[m.key]);
+            const isBest = Number.isFinite(v) && Math.abs(v - best[m.key]) < 1e-9 && reps.length > 1;
+            html += '<td class="num' + (isBest ? ' best' : '') + '">' + m.fmt(v) + '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // 提示
+    const first = reps[0];
+    const last = reps[reps.length - 1];
+    const notices = [];
+    if (reps.length > 1) {
+        const dMrr = last.mrr - first.mrr;
+        const dHit1 = last.hit1 - first.hit1;
+        notices.push('<div class="notice ' + (dMrr > 0 ? 'ok' : 'warn') + '">' +
+            '<b>末档 vs 首档：</b>Hit@1 ' + (dHit1 >= 0 ? '+' : '') + (dHit1 * 100).toFixed(0) + 'pt，' +
+            'MRR ' + (dMrr >= 0 ? '+' : '') + dMrr.toFixed(3) +
+            '，检索耗时 ' + Math.round(last.avgLatencyMs) + 'ms vs ' + Math.round(first.avgLatencyMs) + 'ms。</div>');
+    }
+    const refusalDrop = reps.filter(r => r.refusalAccuracy === 0 && first.refusalAccuracy > 0);
+    if (refusalDrop.length) {
+        notices.push('<div class="notice warn"><b>注意拒答率归零：</b>' +
+            refusalDrop.map(r => esc(r.profile)).join('、') +
+            ' 的拒答率是 0% —— 知识库里没有答案时也说"有"，这会放任大模型编造。</div>');
+    }
+    if (data.caseCount < 100) {
+        notices.push('<div class="notice info"><b>样本量偏小：</b>当前 ' + data.caseCount +
+            ' 条，1~2 个百分点的差距通常只是 1 条用例的区别，不具备统计显著性。' +
+            '要得到可信结论建议扩到 150 条以上。</div>');
+    }
+
+    document.getElementById('reportBox').innerHTML = notices.join('') + html;
+    renderDetails(reps);
+}
+
+// ==================== 渲染：逐条明细 ====================
+function renderDetails(reps) {
+    if (!reps.length || !reps[0].details) {
+        document.getElementById('detailBox').innerHTML = '<div class="empty">—</div>';
+        return;
+    }
+    const base = reps[0];
+    const rows = [];
+    base.details.forEach((d, i) => {
+        const ranks = reps.map(r => (r.details && r.details[i]) ? r.details[i].firstRank : 0);
+        const best = ranks.filter(x => x > 0).sort((a, b) => a - b)[0] || 0;
+        const worst = ranks.slice().sort((a, b) => b - a)[0] || 0;
+        const regressed = ranks[0] > 0 && (ranks[ranks.length - 1] === 0 || ranks[ranks.length - 1] > ranks[0]);
+        if (onlyRegressions && !regressed) return;
+        rows.push({ d: d, ranks: ranks, regressed: regressed });
+    });
+
+    let html = '<table><thead><tr><th>用例</th>';
+    reps.forEach(r => { html += '<th>' + esc(r.profile) + '</th>'; });
+    html += '<th>类型</th></tr></thead><tbody>';
+
+    rows.forEach(row => {
+        html += '<tr>';
+        html += '<td><div class="case-q" title="' + esc(row.d.question) + '">' +
+                esc(row.d.question) + '</div>' +
+                '<span class="profile-desc">' + esc(row.d.id) + '</span></td>';
+        row.ranks.forEach(rank => {
+            let cls = 'miss', text = '×';
+            if (!row.d.answerable) {
+                cls = rank === 0 ? 'hit' : 'miss';
+                text = rank === 0 ? '拒答✓' : '未拒答';
+            } else if (rank === 0) { cls = 'miss'; text = '×'; }
+            else if (rank <= 1) { cls = 'hit'; text = '#' + rank; }
+            else if (rank <= 5) { cls = 'ok'; text = '#' + rank; }
+            else { cls = 'mid'; text = '#' + rank; }
+            html += '<td><span class="rank ' + cls + '">' + text + '</span></td>';
+        });
+        const type = row.d.answerable ? (row.regressed ? '退化' : '') : '应拒答';
+        html += '<td class="hint">' + type + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('detailBox').innerHTML = rows.length ? html
+        : '<div class="empty">没有符合条件的用例</div>';
+}
+
+function toggleOnlyRegressions() {
+    onlyRegressions = !onlyRegressions;
+    document.getElementById('regBtn').textContent = onlyRegressions ? '显示全部' : '只看退化';
+    if (lastResult) renderDetails(lastResult.reports);
+}
+</script>
+</body>
+</html>
